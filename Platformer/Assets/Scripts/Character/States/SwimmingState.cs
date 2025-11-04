@@ -13,13 +13,13 @@ public struct SwimmingState : IPlatformerCharacterState
     private const float kDistanceFromSurfaceToAllowJumping = -0.05f;
     private const float kForcedDistanceFromSurface = 0.01f;
 
-    public void OnStateEnter(CharacterState previousState, ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterAspect aspect)
+    public void OnStateEnter(CharacterState previousState, ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterProcessor processor)
     {
-        ref KinematicCharacterBody characterBody = ref aspect.CharacterAspect.CharacterBody.ValueRW;
-        ref KinematicCharacterProperties characterProperties = ref aspect.CharacterAspect.CharacterProperties.ValueRW;
-        ref PlatformerCharacterComponent character = ref aspect.Character.ValueRW;
+        ref KinematicCharacterBody characterBody = ref processor.CharacterDataAccess.CharacterBody.ValueRW;
+        ref KinematicCharacterProperties characterProperties = ref processor.CharacterDataAccess.CharacterProperties.ValueRW;
+        ref PlatformerCharacterComponent character = ref processor.Character.ValueRW;
 
-        aspect.SetCapsuleGeometry(character.SwimmingGeometry.ToCapsuleGeometry());
+        processor.SetCapsuleGeometry(character.SwimmingGeometry.ToCapsuleGeometry());
 
         characterProperties.SnapToGround = false;
         characterBody.IsGrounded = false;
@@ -28,36 +28,36 @@ public struct SwimmingState : IPlatformerCharacterState
         ShouldExitSwimming = false;
     }
 
-    public void OnStateExit(CharacterState nextState, ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterAspect aspect)
+    public void OnStateExit(CharacterState nextState, ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterProcessor processor)
     {
-        ref KinematicCharacterProperties characterProperties = ref aspect.CharacterAspect.CharacterProperties.ValueRW;
-        ref PlatformerCharacterComponent character = ref aspect.Character.ValueRW;
+        ref KinematicCharacterProperties characterProperties = ref processor.CharacterDataAccess.CharacterProperties.ValueRW;
+        ref PlatformerCharacterComponent character = ref processor.Character.ValueRW;
 
         characterProperties.SnapToGround = true;
     }
 
-    public void OnStatePhysicsUpdate(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterAspect aspect)
+    public void OnStatePhysicsUpdate(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterProcessor processor)
     {
-        aspect.HandlePhysicsUpdatePhase1(ref context, ref baseContext, true, true);
+        processor.HandlePhysicsUpdatePhase1(ref context, ref baseContext, true, true);
         
-        PreMovementUpdate(ref context, ref baseContext, in aspect);
+        PreMovementUpdate(ref context, ref baseContext, in processor);
 
-        aspect.HandlePhysicsUpdatePhase2(ref context, ref baseContext, false, false, true, false, true);
+        processor.HandlePhysicsUpdatePhase2(ref context, ref baseContext, false, false, true, false, true);
 
-        PostMovementUpdate(ref context, ref baseContext, in aspect);
+        PostMovementUpdate(ref context, ref baseContext, in processor);
 
-        DetectTransitions(ref context, ref baseContext, in aspect);
+        DetectTransitions(ref context, ref baseContext, in processor);
     }
 
-    public void OnStateVariableUpdate(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterAspect aspect)
+    public void OnStateVariableUpdate(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterProcessor processor)
     {
         float deltaTime = baseContext.Time.DeltaTime;
-        ref KinematicCharacterBody characterBody = ref aspect.CharacterAspect.CharacterBody.ValueRW;
-        ref PlatformerCharacterComponent character = ref aspect.Character.ValueRW;
-        ref PlatformerCharacterControl characterControl = ref aspect.CharacterControl.ValueRW;
-        ref float3 characterPosition = ref aspect.CharacterAspect.LocalTransform.ValueRW.Position;
-        ref quaternion characterRotation = ref aspect.CharacterAspect.LocalTransform.ValueRW.Rotation;
-        CustomGravity customGravity = aspect.CustomGravity.ValueRO;
+        ref KinematicCharacterBody characterBody = ref processor.CharacterDataAccess.CharacterBody.ValueRW;
+        ref PlatformerCharacterComponent character = ref processor.Character.ValueRW;
+        ref PlatformerCharacterControl characterControl = ref processor.CharacterControl.ValueRW;
+        ref float3 characterPosition = ref processor.CharacterDataAccess.LocalTransform.ValueRW.Position;
+        ref quaternion characterRotation = ref processor.CharacterDataAccess.LocalTransform.ValueRW.Rotation;
+        CustomGravity customGravity = processor.CustomGravity.ValueRO;
 
         if (!ShouldExitSwimming)
         {
@@ -80,7 +80,7 @@ public struct SwimmingState : IPlatformerCharacterState
                 }
                 quaternion targetRotation = MathUtilities.CreateRotationWithUpPriority(upPlane, targetForward);
                 targetRotation = math.slerp(characterRotation, targetRotation, MathUtilities.GetSharpnessInterpolant(character.SwimmingRotationSharpness, deltaTime));
-                MathUtilities.SetRotationAroundPoint(ref characterRotation, ref characterPosition, aspect.GetGeometryCenter(character.SwimmingGeometry), targetRotation);
+                MathUtilities.SetRotationAroundPoint(ref characterRotation, ref characterPosition, processor.GetGeometryCenter(character.SwimmingGeometry), targetRotation);
             }
             else
             {
@@ -89,7 +89,7 @@ public struct SwimmingState : IPlatformerCharacterState
                     // Make character up face the movement direction, and character forward face gravity direction as much as it can
                     quaternion targetRotation = MathUtilities.CreateRotationWithUpPriority(math.normalizesafe(characterControl.MoveVector), math.normalizesafe(customGravity.Gravity));
                     targetRotation = math.slerp(characterRotation, targetRotation, MathUtilities.GetSharpnessInterpolant(character.SwimmingRotationSharpness, deltaTime));
-                    MathUtilities.SetRotationAroundPoint(ref characterRotation, ref characterPosition, aspect.GetGeometryCenter(character.SwimmingGeometry), targetRotation);
+                    MathUtilities.SetRotationAroundPoint(ref characterRotation, ref characterPosition, processor.GetGeometryCenter(character.SwimmingGeometry), targetRotation);
                 }
             }
         }
@@ -119,18 +119,18 @@ public struct SwimmingState : IPlatformerCharacterState
         moveVector = MathUtilities.ClampToMaxLength(moveVector, 1f);
     }
 
-    public void PreMovementUpdate(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterAspect aspect)
+    public void PreMovementUpdate(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterProcessor processor)
     {
         float deltaTime = baseContext.Time.DeltaTime;
-        ref KinematicCharacterBody characterBody = ref aspect.CharacterAspect.CharacterBody.ValueRW;
-        ref PlatformerCharacterComponent character = ref aspect.Character.ValueRW;
-        ref PlatformerCharacterControl characterControl = ref aspect.CharacterControl.ValueRW;
-        ref quaternion characterRotation = ref aspect.CharacterAspect.LocalTransform.ValueRW.Rotation;
+        ref KinematicCharacterBody characterBody = ref processor.CharacterDataAccess.CharacterBody.ValueRW;
+        ref PlatformerCharacterComponent character = ref processor.Character.ValueRW;
+        ref PlatformerCharacterControl characterControl = ref processor.CharacterControl.ValueRW;
+        ref quaternion characterRotation = ref processor.CharacterDataAccess.LocalTransform.ValueRW.Rotation;
 
         HasDetectedGrounding = characterBody.IsGrounded;
         characterBody.IsGrounded = false;
         
-        if (DetectWaterZones(ref context, ref baseContext, in aspect, out character.DirectionToWaterSurface, out character.DistanceFromWaterSurface))
+        if (DetectWaterZones(ref context, ref baseContext, in processor, out character.DirectionToWaterSurface, out character.DistanceFromWaterSurface))
         {
             // Movement
             float3 addedMoveVector = float3.zero;
@@ -166,14 +166,14 @@ public struct SwimmingState : IPlatformerCharacterState
         }
     }
 
-    public void PostMovementUpdate(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterAspect aspect)
+    public void PostMovementUpdate(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterProcessor processor)
     {
-        ref KinematicCharacterBody characterBody = ref aspect.CharacterAspect.CharacterBody.ValueRW;
-        ref PlatformerCharacterComponent character = ref aspect.Character.ValueRW;
-        ref float3 characterPosition = ref aspect.CharacterAspect.LocalTransform.ValueRW.Position;
+        ref KinematicCharacterBody characterBody = ref processor.CharacterDataAccess.CharacterBody.ValueRW;
+        ref PlatformerCharacterComponent character = ref processor.Character.ValueRW;
+        ref float3 characterPosition = ref processor.CharacterDataAccess.LocalTransform.ValueRW.Position;
 
         bool determinedHasExitedWater = false;
-        if (DetectWaterZones(ref context, ref baseContext, in aspect, out character.DirectionToWaterSurface, out character.DistanceFromWaterSurface))
+        if (DetectWaterZones(ref context, ref baseContext, in processor, out character.DirectionToWaterSurface, out character.DistanceFromWaterSurface))
         {
             // Handle snapping to water surface when trying to swim out of the water
             if (character.DistanceFromWaterSurface > -kForcedDistanceFromSurface)
@@ -200,36 +200,36 @@ public struct SwimmingState : IPlatformerCharacterState
         ShouldExitSwimming = determinedHasExitedWater;
     }
 
-    public bool DetectTransitions(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterAspect aspect)
+    public bool DetectTransitions(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterProcessor processor)
     {
-        ref PlatformerCharacterStateMachine stateMachine = ref aspect.StateMachine.ValueRW;
+        ref PlatformerCharacterStateMachine stateMachine = ref processor.StateMachine.ValueRW;
 
         if (ShouldExitSwimming || HasDetectedGrounding)
         {
             if (HasDetectedGrounding)
             {
-                stateMachine.TransitionToState(CharacterState.GroundMove, ref context, ref baseContext, in aspect);
+                stateMachine.TransitionToState(CharacterState.GroundMove, ref context, ref baseContext, in processor);
                 return true;
             }
             else
             {
-                stateMachine.TransitionToState(CharacterState.AirMove, ref context, ref baseContext, in aspect);
+                stateMachine.TransitionToState(CharacterState.AirMove, ref context, ref baseContext, in processor);
                 return true;
             }
         }
 
-        return aspect.DetectGlobalTransitions(ref context, ref baseContext);
+        return processor.DetectGlobalTransitions(ref context, ref baseContext);
     }
 
-    public unsafe static bool DetectWaterZones(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterAspect aspect, out float3 directionToWaterSurface, out float waterSurfaceDistance)
+    public unsafe static bool DetectWaterZones(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterProcessor processor, out float3 directionToWaterSurface, out float waterSurfaceDistance)
     {
         directionToWaterSurface = default;
         waterSurfaceDistance = 0f;
         
-        ref PhysicsCollider physicsCollider = ref aspect.CharacterAspect.PhysicsCollider.ValueRW;
-        ref PlatformerCharacterComponent character = ref aspect.Character.ValueRW;
-        ref float3 characterPosition = ref aspect.CharacterAspect.LocalTransform.ValueRW.Position;
-        ref quaternion characterRotation = ref aspect.CharacterAspect.LocalTransform.ValueRW.Rotation;
+        ref PhysicsCollider physicsCollider = ref processor.CharacterDataAccess.PhysicsCollider.ValueRW;
+        ref PlatformerCharacterComponent character = ref processor.Character.ValueRW;
+        ref float3 characterPosition = ref processor.CharacterDataAccess.LocalTransform.ValueRW.Position;
+        ref quaternion characterRotation = ref processor.CharacterDataAccess.LocalTransform.ValueRW.Rotation;
 
         RigidTransform characterRigidTransform = new RigidTransform(characterRotation, characterPosition);
         float3 swimmingDetectionPointWorldPosition = math.transform(characterRigidTransform, character.LocalSwimmingDetectionPoint);

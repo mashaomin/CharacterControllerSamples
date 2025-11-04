@@ -1,47 +1,41 @@
-using System.Collections;
-using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Entities.Graphics;
-using Unity.Mathematics;
-using Unity.NetCode;
-using Unity.Networking.Transport;
 using Unity.Rendering;
 using Unity.Transforms;
-using UnityEngine.InputSystem;
 
 namespace OnlineFPS
 {
     public struct SwitchBool
     {
-        private bool Current;
-        private bool Previous;
+        bool m_Current;
+        bool m_Previous;
 
         public void Init(bool val)
         {
-            Current = val;
-            Previous = val;
+            m_Current = val;
+            m_Previous = val;
         }
 
         public void Set(bool val)
         {
-            Previous = Current;
-            Current = val;
+            m_Previous = m_Current;
+            m_Current = val;
         }
 
         public bool HasChanged()
         {
-            return Current != Previous;
+            return m_Current != m_Previous;
         }
 
         public void ConsumeChange()
         {
-            Previous = Current;
+            m_Previous = m_Current;
         }
 
         public bool Get()
         {
-            return Current;
+            return m_Current;
         }
     }
 

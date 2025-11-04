@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using Unity.CharacterController;
 using Unity.Entities;
 using Unity.Physics.Stateful;
@@ -9,7 +7,7 @@ using UnityEngine;
 [UpdateInGroup(typeof(AfterPhysicsSystemGroup))]
 public partial struct CharacterTriggerEventDebuggerSystem : ISystem
 {
-    void OnUpdate(ref SystemState state)
+    public void OnUpdate(ref SystemState state)
     {
         foreach (var (triggerEvents, entity) in SystemAPI.Query<DynamicBuffer<StatefulTriggerEvent>>().WithEntityAccess())
         {
@@ -20,7 +18,7 @@ public partial struct CharacterTriggerEventDebuggerSystem : ISystem
                     Entity otherEntity = triggerEvents[i].GetOtherEntity(entity);
                     if (SystemAPI.HasComponent<KinematicCharacterBody>(otherEntity))
                     {
-                        UnityEngine.Debug.Log($"Entity {entity.Index} detected trigger enter with {otherEntity.Index}");
+                        Debug.Log($"Entity {entity.Index} detected trigger enter with {otherEntity.Index}");
                     }
                 }
             }

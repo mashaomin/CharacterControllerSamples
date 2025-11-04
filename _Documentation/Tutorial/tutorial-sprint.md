@@ -20,7 +20,7 @@ Next, we will modify the `ThirdPersonPlayerInputsSystem` so that it queries that
 public partial class ThirdPersonPlayerInputsSystem : SystemBase
 {
     // (...)
-    
+
     protected override void OnUpdate()
     {
         foreach (var (playerInputs, player) in SystemAPI.Query<RefRW<ThirdPersonPlayerInputs>, ThirdPersonPlayer>())
@@ -85,14 +85,14 @@ We will add a field that represents the multiplier to apply to our velocity when
 public struct ThirdPersonCharacterComponent : IComponentData
 {
     // (...)
-    public float SprintSpeedMultiplier; 
+    public float SprintSpeedMultiplier;
 }
 ```
 
-Then, we will use that `ThirdPersonCharacterComponent.SprintSpeedMultiplier` field to modify our character velocity in the character update, but only when `ThirdPersonCharacterControl.Sprint` is true, and only when the character is grounded. This will be done in `ThirdPersonCharacterAspect.HandleVelocityControl`
+Then, we will use that `ThirdPersonCharacterComponent.SprintSpeedMultiplier` field to modify our character velocity in the character update, but only when `ThirdPersonCharacterControl.Sprint` is true, and only when the character is grounded. This will be done in `ThirdPersonCharacterProcessor.HandleVelocityControl`
 
 ```cs
-public readonly partial struct ThirdPersonCharacterAspect : IAspect, IKinematicCharacterProcessor<ThirdPersonCharacterUpdateContext>
+public readonly partial struct ThirdPersonCharacterProcessor : IKinematicCharacterProcessor<ThirdPersonCharacterUpdateContext>
 {
     // (...)
 
@@ -104,15 +104,15 @@ public readonly partial struct ThirdPersonCharacterAspect : IAspect, IKinematicC
         {
             // Move on ground
             float3 targetVelocity = characterControl.MoveVector * characterComponent.GroundMaxSpeed;
-            
+
             // Sprint
             if (characterControl.Sprint)
             {
                 targetVelocity *= characterComponent.SprintSpeedMultiplier;
             }
-            
+
             CharacterControlUtilities.StandardGroundMove_Interpolated(ref characterBody.RelativeVelocity, targetVelocity, characterComponent.GroundedMovementSharpness, deltaTime, characterBody.GroundingUp, characterBody.GroundHit.Normal);
-            
+
             // (...)
         }
         else

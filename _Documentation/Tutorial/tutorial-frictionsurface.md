@@ -1,7 +1,7 @@
 
 # Tutorial - Friction Surface
 
-Now, we want to be able to create surfaces where the character has a limited movement speed. 
+Now, we want to be able to create surfaces where the character has a limited movement speed.
 
 To do this, we will first create a new `CharacterFrictionSurface` component (along with a corresponding authoring component) that will be assignable to certain objects in the world:
 
@@ -34,9 +34,9 @@ public class CharacterFrictionSurfaceAuthoring : MonoBehaviour
 }
 ```
 
-At this point, we'd want to modify our `ThirdPersonCharacterAspect.HandleVelocityControl` so that if our `GroundHit.Entity` has a `CharacterFrictionSurface`, then we apply a `VelocityFactor` to our character's desired velocity. However, we can't do this just yet, because we currently have no way to access `CharacterFrictionSurface` components on other entities during our character aspect's updates. This is where `ThirdPersonCharacterUpdateContext` can become useful. `ThirdPersonCharacterUpdateContext` is a struct that gets initialized by character systems, and passed as parameter to the update methods of the character Aspect. This makes it the ideal place to store `ComponentLookup`s, or any singleton data that must be accessed during the character update.
+At this point, we'd want to modify our `ThirdPersonCharacterProcessor.HandleVelocityControl` so that if our `GroundHit.Entity` has a `CharacterFrictionSurface`, then we apply a `VelocityFactor` to our character's desired velocity. However, we can't do this just yet, because we currently have no way to access `CharacterFrictionSurface` components on other entities during our character processor's updates. This is where `ThirdPersonCharacterUpdateContext` can become useful. `ThirdPersonCharacterUpdateContext` is a struct that gets initialized by character systems, and passed as parameter to the character update methods. This makes it the ideal place to store `ComponentLookup`s, or any singleton data that must be accessed during the character update.
 
-We will therefore add a `ComponentLookup<CharacterFrictionSurface>` in our `ThirdPersonCharacterUpdateContext`, in order to be able to look up these components on other entities (the `ThirdPersonCharacterUpdateContext` struct is located in the same file as our `ThirdPersonCharacterAspect`). The struct should look like this (see comments in code for additional details):
+We will therefore add a `ComponentLookup<CharacterFrictionSurface>` in our `ThirdPersonCharacterUpdateContext`, in order to be able to look up these components on other entities (the `ThirdPersonCharacterUpdateContext` struct is located in the same file as our `ThirdPersonCharacterProcessor`). The struct should look like this (see comments in code for additional details):
 
 ```cs
 public struct ThirdPersonCharacterUpdateContext
@@ -46,14 +46,14 @@ public struct ThirdPersonCharacterUpdateContext
     [ReadOnly]
     public ComponentLookup<CharacterFrictionSurface> CharacterFrictionSurfaceLookup;
 
-    // This is called by systems that schedule jobs that update the character aspect, in their OnCreate().
+    // This is called by systems that schedule jobs that update the character processor, in their OnCreate().
     // Here, you can get the component lookups.
     public void OnSystemCreate(ref SystemState state)
     {
         CharacterFrictionSurfaceLookup = state.GetComponentLookup<CharacterFrictionSurface>(true);
     }
 
-    // This is called by systems that schedule jobs that update the character aspect, in their OnUpdate()
+    // This is called by systems that schedule jobs that update the character processor, in their OnUpdate()
     // Here, you can update the component lookups.
     public void OnSystemUpdate(ref SystemState state)
     {
@@ -62,10 +62,10 @@ public struct ThirdPersonCharacterUpdateContext
 }
 ```
 
-With this, we are ready to access the `CharacterFrictionSurface` component on hit entities in our character updated. We will proceed with modifying `ThirdPersonCharacterAspect.HandleVelocityControl` so that we apply a `VelocityFactor` reduction to our velocity when the `GroundHit.Entity` has a `CharacterFrictionSurface:
+With this, we are ready to access the `CharacterFrictionSurface` component on hit entities in our character updated. We will proceed with modifying `ThirdPersonCharacterProcessor.HandleVelocityControl` so that we apply a `VelocityFactor` reduction to our velocity when the `GroundHit.Entity` has a `CharacterFrictionSurface:
 
 ```cs
-public readonly partial struct ThirdPersonCharacterAspect : IAspect, IKinematicCharacterProcessor<ThirdPersonCharacterUpdateContext>
+public readonly partial struct ThirdPersonCharacterProcessor : IKinematicCharacterProcessor<ThirdPersonCharacterUpdateContext>
 {
     private void HandleVelocityControl(ref ThirdPersonCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext)
     {
@@ -75,18 +75,18 @@ public readonly partial struct ThirdPersonCharacterAspect : IAspect, IKinematicC
         {
             // Move on ground
             // (...)
-            
+
             // Sprint
             // (...)
-            
+
             // Friction surfaces
             if (context.CharacterFrictionSurfaceLookup.TryGetComponent(characterBody.GroundHit.Entity, out CharacterFrictionSurface frictionSurface))
             {
                 targetVelocity *= frictionSurface.VelocityFactor;
             }
-            
+
             CharacterControlUtilities.StandardGroundMove_Interpolated(ref characterBody.RelativeVelocity, targetVelocity, characterComponent.GroundedMovementSharpness, deltaTime, characterBody.GroundingUp, characterBody.GroundHit.Normal);
-            
+
             // Jump
             // (...)
         }

@@ -6,28 +6,28 @@ using Unity.Transforms;
 
 public struct CrouchedState : IPlatformerCharacterState
 {
-    public void OnStateEnter(CharacterState previousState, ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterAspect aspect)
+    public void OnStateEnter(CharacterState previousState, ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterProcessor processor)
     {
-        ref PlatformerCharacterComponent character = ref aspect.Character.ValueRW;
+        ref PlatformerCharacterComponent character = ref processor.Character.ValueRW;
 
-        aspect.SetCapsuleGeometry(character.CrouchingGeometry.ToCapsuleGeometry());
+        processor.SetCapsuleGeometry(character.CrouchingGeometry.ToCapsuleGeometry());
     }
 
-    public void OnStateExit(CharacterState nextState, ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterAspect aspect)
+    public void OnStateExit(CharacterState nextState, ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterProcessor processor)
     {
-        ref PlatformerCharacterComponent character = ref aspect.Character.ValueRW;
+        ref PlatformerCharacterComponent character = ref processor.Character.ValueRW;
 
         character.IsOnStickySurface = false;
     }
 
-    public void OnStatePhysicsUpdate(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterAspect aspect)
+    public void OnStatePhysicsUpdate(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterProcessor processor)
     {
         float deltaTime = baseContext.Time.DeltaTime;
-        ref KinematicCharacterBody characterBody = ref aspect.CharacterAspect.CharacterBody.ValueRW;
-        ref PlatformerCharacterComponent character = ref aspect.Character.ValueRW;
-        ref PlatformerCharacterControl characterControl = ref aspect.CharacterControl.ValueRW;
+        ref KinematicCharacterBody characterBody = ref processor.CharacterDataAccess.CharacterBody.ValueRW;
+        ref PlatformerCharacterComponent character = ref processor.Character.ValueRW;
+        ref PlatformerCharacterControl characterControl = ref processor.CharacterControl.ValueRW;
 
-        aspect.HandlePhysicsUpdatePhase1(ref context, ref baseContext, true, true);
+        processor.HandlePhysicsUpdatePhase1(ref context, ref baseContext, true, true);
 
         // Rotate move input and velocity to take into account parent rotation
         if(characterBody.ParentEntity != Entity.Null)
@@ -48,19 +48,19 @@ public struct CrouchedState : IPlatformerCharacterState
         float3 targetVelocity = moveVectorOnPlane * chosenMaxSpeed;
         CharacterControlUtilities.StandardGroundMove_Interpolated(ref characterBody.RelativeVelocity, targetVelocity, chosenSharpness, deltaTime, characterBody.GroundingUp, characterBody.GroundHit.Normal);
         
-        aspect.HandlePhysicsUpdatePhase2(ref context, ref baseContext, true, true, true, true, true);
+        processor.HandlePhysicsUpdatePhase2(ref context, ref baseContext, true, true, true, true, true);
 
-        DetectTransitions(ref context, ref baseContext, in aspect);
+        DetectTransitions(ref context, ref baseContext, in processor);
     }
 
-    public void OnStateVariableUpdate(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterAspect aspect)
+    public void OnStateVariableUpdate(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterProcessor processor)
     {
         float deltaTime = baseContext.Time.DeltaTime;
-        ref KinematicCharacterBody characterBody = ref aspect.CharacterAspect.CharacterBody.ValueRW;
-        ref PlatformerCharacterComponent character = ref aspect.Character.ValueRW;
-        ref PlatformerCharacterControl characterControl = ref aspect.CharacterControl.ValueRW;
-        ref quaternion characterRotation = ref aspect.CharacterAspect.LocalTransform.ValueRW.Rotation;
-        CustomGravity customGravity = aspect.CustomGravity.ValueRO;
+        ref KinematicCharacterBody characterBody = ref processor.CharacterDataAccess.CharacterBody.ValueRW;
+        ref PlatformerCharacterComponent character = ref processor.Character.ValueRW;
+        ref PlatformerCharacterControl characterControl = ref processor.CharacterControl.ValueRW;
+        ref quaternion characterRotation = ref processor.CharacterDataAccess.LocalTransform.ValueRW.Rotation;
+        CustomGravity customGravity = processor.CustomGravity.ValueRO;
         
         if (math.lengthsq(characterControl.MoveVector) > 0f)
         {
@@ -86,27 +86,27 @@ public struct CrouchedState : IPlatformerCharacterState
 
     public void GetMoveVectorFromPlayerInput(in PlatformerPlayerInputs inputs, quaternion cameraRotation, out float3 moveVector)
     {
-        PlatformerCharacterAspect.GetCommonMoveVectorFromPlayerInput(in inputs, cameraRotation, out moveVector);
+        PlatformerCharacterProcessor.GetCommonMoveVectorFromPlayerInput(in inputs, cameraRotation, out moveVector);
     }
 
-    public bool DetectTransitions(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterAspect aspect)
+    public bool DetectTransitions(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterProcessor processor)
     {
-        ref KinematicCharacterBody characterBody = ref aspect.CharacterAspect.CharacterBody.ValueRW;
-        ref PlatformerCharacterControl characterControl = ref aspect.CharacterControl.ValueRW;
-        ref PlatformerCharacterStateMachine stateMachine = ref aspect.StateMachine.ValueRW;
+        ref KinematicCharacterBody characterBody = ref processor.CharacterDataAccess.CharacterBody.ValueRW;
+        ref PlatformerCharacterControl characterControl = ref processor.CharacterControl.ValueRW;
+        ref PlatformerCharacterStateMachine stateMachine = ref processor.StateMachine.ValueRW;
         
         if (characterControl.CrouchPressed)
         {
-            if (aspect.CanStandUp(ref context, ref baseContext))
+            if (processor.CanStandUp(ref context, ref baseContext))
             {
                 if (characterBody.IsGrounded)
                 {
-                    stateMachine.TransitionToState(CharacterState.GroundMove, ref context, ref baseContext, in aspect);
+                    stateMachine.TransitionToState(CharacterState.GroundMove, ref context, ref baseContext, in processor);
                     return true;
                 }
                 else
                 {
-                    stateMachine.TransitionToState(CharacterState.AirMove, ref context, ref baseContext, in aspect);
+                    stateMachine.TransitionToState(CharacterState.AirMove, ref context, ref baseContext, in processor);
                     return true;
                 }
             }
@@ -114,22 +114,22 @@ public struct CrouchedState : IPlatformerCharacterState
 
         if (characterControl.RollHeld)
         {
-            stateMachine.TransitionToState(CharacterState.Rolling, ref context, ref baseContext, in aspect);
+            stateMachine.TransitionToState(CharacterState.Rolling, ref context, ref baseContext, in processor);
             return true;
         }
 
         if (characterControl.DashPressed)
         {
-            stateMachine.TransitionToState(CharacterState.Dashing, ref context, ref baseContext, in aspect);
+            stateMachine.TransitionToState(CharacterState.Dashing, ref context, ref baseContext, in processor);
             return true;
         }
 
         if (!characterBody.IsGrounded)
         {
-            stateMachine.TransitionToState(CharacterState.AirMove, ref context, ref baseContext, in aspect);
+            stateMachine.TransitionToState(CharacterState.AirMove, ref context, ref baseContext, in processor);
             return true;
         }
 
-        return aspect.DetectGlobalTransitions(ref context, ref baseContext);
+        return processor.DetectGlobalTransitions(ref context, ref baseContext);
     }
 }

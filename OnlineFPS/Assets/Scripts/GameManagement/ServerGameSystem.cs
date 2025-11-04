@@ -1,21 +1,15 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using Unity.Burst;
 using Unity.CharacterController;
 using Unity.Collections;
 using Unity.Entities;
-using Unity.Entities.Serialization;
 using Unity.Jobs;
-using Unity.Logging;
 using Unity.Mathematics;
 using Unity.NetCode;
 using Unity.Networking.Transport;
 using Unity.Physics;
 using Unity.Physics.Extensions;
-using Unity.Scenes;
 using Unity.Transforms;
-
 
 namespace OnlineFPS
 {
@@ -52,20 +46,20 @@ namespace OnlineFPS
             public Entity PlayerEntity;
         }
 
-        private EntityQuery _joinRequestQuery;
-        private EntityQuery _connectionsQuery;
-        private NativeHashMap<int, Entity> _connectionEntityMap;
+        EntityQuery m_JoinRequestQuery;
+        EntityQuery m_ConnectionsQuery;
+        NativeHashMap<int, Entity> m_ConnectionEntityMap;
 
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<GameResources>();
             state.RequireForUpdate<GameResourcesWeapon>();
 
-            _joinRequestQuery = new EntityQueryBuilder(Allocator.Temp)
+            m_JoinRequestQuery = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<JoinRequest, ReceiveRpcCommandRequest>().Build(ref state);
-            _connectionsQuery = new EntityQueryBuilder(Allocator.Temp).WithAll<NetworkId>().Build(state.EntityManager);
+            m_ConnectionsQuery = new EntityQueryBuilder(Allocator.Temp).WithAll<NetworkId>().Build(state.EntityManager);
 
-            _connectionEntityMap = new NativeHashMap<int, Entity>(300, Allocator.Persistent);
+            m_ConnectionEntityMap = new NativeHashMap<int, Entity>(300, Allocator.Persistent);
 
             // Auto-create singleton
             uint randomSeed = (uint)DateTime.Now.Millisecond;
@@ -73,15 +67,15 @@ namespace OnlineFPS
             state.EntityManager.AddComponentData(singletonEntity, new Singleton
             {
                 Random = Unity.Mathematics.Random.CreateFromIndex(randomSeed),
-                ConnectionEntityMap = this._connectionEntityMap,
+                ConnectionEntityMap = this.m_ConnectionEntityMap,
             });
         }
 
         public void OnDestroy(ref SystemState state)
         {
-            if (_connectionEntityMap.IsCreated)
+            if (m_ConnectionEntityMap.IsCreated)
             {
-                _connectionEntityMap.Dispose();
+                m_ConnectionEntityMap.Dispose();
             }
         }
 
@@ -110,7 +104,7 @@ namespace OnlineFPS
             HandleCharacters(ref state, ref singleton, gameResources);
         }
 
-        private void HandleListen(ref SystemState state, ref Singleton singleton)
+        void HandleListen(ref SystemState state, ref Singleton singleton)
         {
             if (!singleton.HasHandledListen &&
                 SystemAPI.TryGetSingletonRW(out RefRW<NetworkStreamDriver> netStreamDriver))
@@ -120,11 +114,11 @@ namespace OnlineFPS
             }
         }
 
-        private void BuildConnectionEntityMap(ref SystemState state, ref Singleton singleton)
+        void BuildConnectionEntityMap(ref SystemState state, ref Singleton singleton)
         {
-            NativeArray<Entity> connectionEntities = _connectionsQuery.ToEntityArray(state.WorldUpdateAllocator);
+            NativeArray<Entity> connectionEntities = m_ConnectionsQuery.ToEntityArray(state.WorldUpdateAllocator);
             NativeArray<NetworkId> connections =
-                _connectionsQuery.ToComponentDataArray<NetworkId>(state.WorldUpdateAllocator);
+                m_ConnectionsQuery.ToComponentDataArray<NetworkId>(state.WorldUpdateAllocator);
 
             state.Dependency = new BuildConnectionEntityMapJob
             {
@@ -137,7 +131,7 @@ namespace OnlineFPS
             connections.Dispose(state.Dependency);
         }
 
-        private void HandleAcceptJoinsOncePendingScenesAreLoaded(ref SystemState state, ref Singleton singleton)
+        void HandleAcceptJoinsOncePendingScenesAreLoaded(ref SystemState state, ref Singleton singleton)
         {
             if (!singleton.AcceptJoins)
             {
@@ -167,7 +161,7 @@ namespace OnlineFPS
             }
         }
 
-        private void HandlePendingJoinClientTimeout(ref SystemState state, ref Singleton singleton,
+        void HandlePendingJoinClientTimeout(ref SystemState state, ref Singleton singleton,
             GameResources gameResources)
         {
             // Add ConnectionState component
@@ -211,9 +205,9 @@ namespace OnlineFPS
             }
         }
 
-        private void HandleJoinRequests(ref SystemState state, ref Singleton singleton, GameResources gameResources)
+        void HandleJoinRequests(ref SystemState state, ref Singleton singleton, GameResources gameResources)
         {
-            if (singleton.AcceptJoins && _joinRequestQuery.CalculateEntityCount() > 0)
+            if (singleton.AcceptJoins && m_JoinRequestQuery.CalculateEntityCount() > 0)
             {
                 EntityCommandBuffer ecb = SystemAPI.GetSingletonRW<BeginSimulationEntityCommandBufferSystem.Singleton>()
                     .ValueRW.CreateCommandBuffer(state.WorldUnmanaged);
@@ -268,7 +262,7 @@ namespace OnlineFPS
             }
         }
 
-        private void HandleCharacters(ref SystemState state, ref Singleton singleton, GameResources gameResources)
+        void HandleCharacters(ref SystemState state, ref Singleton singleton, GameResources gameResources)
         {
             EntityCommandBuffer ecb = SystemAPI.GetSingletonRW<BeginSimulationEntityCommandBufferSystem.Singleton>()
                 .ValueRW.CreateCommandBuffer(state.WorldUnmanaged);

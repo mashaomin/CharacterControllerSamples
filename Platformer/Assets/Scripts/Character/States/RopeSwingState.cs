@@ -2,19 +2,18 @@ using Unity.Entities;
 using Unity.CharacterController;
 using Unity.Mathematics;
 using Unity.Physics;
-using Unity.Transforms;
 
 public struct RopeSwingState : IPlatformerCharacterState
 {
     public float3 AnchorPoint;
 
-    public void OnStateEnter(CharacterState previousState, ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterAspect aspect)
+    public void OnStateEnter(CharacterState previousState, ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterProcessor processor)
     {
-        Entity entity = aspect.CharacterAspect.Entity;
-        ref KinematicCharacterProperties characterProperties = ref aspect.CharacterAspect.CharacterProperties.ValueRW;
-        ref PlatformerCharacterComponent character = ref aspect.Character.ValueRW;
+        Entity entity = processor.CharacterDataAccess.CharacterEntity;
+        ref KinematicCharacterProperties characterProperties = ref processor.CharacterDataAccess.CharacterProperties.ValueRW;
+        ref PlatformerCharacterComponent character = ref processor.Character.ValueRW;
         
-        aspect.SetCapsuleGeometry(character.StandingGeometry.ToCapsuleGeometry());
+        processor.SetCapsuleGeometry(character.StandingGeometry.ToCapsuleGeometry());
         
         characterProperties.EvaluateGrounding = false;
 
@@ -23,25 +22,25 @@ public struct RopeSwingState : IPlatformerCharacterState
         context.EndFrameECB.AddComponent(context.ChunkIndex, ropeInstanceEntity, new CharacterRope { OwningCharacterEntity = entity });
     }
 
-    public void OnStateExit(CharacterState nextState, ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterAspect aspect)
+    public void OnStateExit(CharacterState nextState, ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterProcessor processor)
     {
-        ref KinematicCharacterProperties characterProperties = ref aspect.CharacterAspect.CharacterProperties.ValueRW;
+        ref KinematicCharacterProperties characterProperties = ref processor.CharacterDataAccess.CharacterProperties.ValueRW;
         
         characterProperties.EvaluateGrounding = true;
         // Note: rope despawning is handled by the rope system itself
     }
 
-    public void OnStatePhysicsUpdate(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterAspect aspect)
+    public void OnStatePhysicsUpdate(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterProcessor processor)
     {
         float deltaTime = baseContext.Time.DeltaTime;
-        ref KinematicCharacterBody characterBody = ref aspect.CharacterAspect.CharacterBody.ValueRW;
-        ref PlatformerCharacterComponent character = ref aspect.Character.ValueRW;
-        ref PlatformerCharacterControl characterControl = ref aspect.CharacterControl.ValueRW;
-        ref float3 characterPosition = ref aspect.CharacterAspect.LocalTransform.ValueRW.Position;
-        CustomGravity customGravity = aspect.CustomGravity.ValueRO;
-        quaternion characterRotation = aspect.CharacterAspect.LocalTransform.ValueRW.Rotation;
+        ref KinematicCharacterBody characterBody = ref processor.CharacterDataAccess.CharacterBody.ValueRW;
+        ref PlatformerCharacterComponent character = ref processor.Character.ValueRW;
+        ref PlatformerCharacterControl characterControl = ref processor.CharacterControl.ValueRW;
+        ref float3 characterPosition = ref processor.CharacterDataAccess.LocalTransform.ValueRW.Position;
+        CustomGravity customGravity = processor.CustomGravity.ValueRO;
+        quaternion characterRotation = processor.CharacterDataAccess.LocalTransform.ValueRW.Rotation;
         
-        aspect.HandlePhysicsUpdatePhase1(ref context, ref baseContext, false, false);
+        processor.HandlePhysicsUpdatePhase1(ref context, ref baseContext, false, false);
 
         // Move
         float3 moveVectorOnPlane = math.normalizesafe(MathUtilities.ProjectOnPlane(characterControl.MoveVector, characterBody.GroundingUp)) * math.length(characterControl.MoveVector);
@@ -58,18 +57,18 @@ public struct RopeSwingState : IPlatformerCharacterState
         RigidTransform characterTransform = new RigidTransform(characterRotation, characterPosition);
         ConstrainToRope(ref characterPosition, ref characterBody.RelativeVelocity, character.RopeLength, AnchorPoint, math.transform(characterTransform, character.LocalRopeAnchorPoint));
 
-        aspect.HandlePhysicsUpdatePhase2(ref context, ref baseContext, false, false, true, false, false);
+        processor.HandlePhysicsUpdatePhase2(ref context, ref baseContext, false, false, true, false, false);
 
-        DetectTransitions(ref context, ref baseContext, in aspect);
+        DetectTransitions(ref context, ref baseContext, in processor);
     }
 
-    public void OnStateVariableUpdate(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterAspect aspect)
+    public void OnStateVariableUpdate(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterProcessor processor)
     {
         float deltaTime = baseContext.Time.DeltaTime;
-        ref PlatformerCharacterComponent character = ref aspect.Character.ValueRW;
-        ref PlatformerCharacterControl characterControl = ref aspect.CharacterControl.ValueRW;
-        ref float3 characterPosition = ref aspect.CharacterAspect.LocalTransform.ValueRW.Position;
-        ref quaternion characterRotation = ref aspect.CharacterAspect.LocalTransform.ValueRW.Rotation;
+        ref PlatformerCharacterComponent character = ref processor.Character.ValueRW;
+        ref PlatformerCharacterControl characterControl = ref processor.CharacterControl.ValueRW;
+        ref float3 characterPosition = ref processor.CharacterDataAccess.LocalTransform.ValueRW.Position;
+        ref quaternion characterRotation = ref processor.CharacterDataAccess.LocalTransform.ValueRW.Rotation;
         
         if (math.lengthsq(characterControl.MoveVector) > 0f)
         {
@@ -86,30 +85,30 @@ public struct RopeSwingState : IPlatformerCharacterState
 
     public void GetMoveVectorFromPlayerInput(in PlatformerPlayerInputs inputs, quaternion cameraRotation, out float3 moveVector)
     {
-        PlatformerCharacterAspect.GetCommonMoveVectorFromPlayerInput(in inputs, cameraRotation, out moveVector);
+        PlatformerCharacterProcessor.GetCommonMoveVectorFromPlayerInput(in inputs, cameraRotation, out moveVector);
     }
 
-    public bool DetectTransitions(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterAspect aspect)
+    public bool DetectTransitions(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterProcessor processor)
     {
-        ref PlatformerCharacterControl characterControl = ref aspect.CharacterControl.ValueRW;
-        ref PlatformerCharacterStateMachine stateMachine = ref aspect.StateMachine.ValueRW;
+        ref PlatformerCharacterControl characterControl = ref processor.CharacterControl.ValueRW;
+        ref PlatformerCharacterStateMachine stateMachine = ref processor.StateMachine.ValueRW;
         
         if (characterControl.JumpPressed || characterControl.DashPressed)
         {
-            stateMachine.TransitionToState(CharacterState.AirMove, ref context, ref baseContext, in aspect);
+            stateMachine.TransitionToState(CharacterState.AirMove, ref context, ref baseContext, in processor);
             return true;
         }
         
-        return aspect.DetectGlobalTransitions(ref context, ref baseContext);
+        return processor.DetectGlobalTransitions(ref context, ref baseContext);
     }
 
-    public static bool DetectRopePoints(in PhysicsWorld physicsWorld, in PlatformerCharacterAspect aspect, out float3 point)
+    public static bool DetectRopePoints(in PhysicsWorld physicsWorld, in PlatformerCharacterProcessor processor, out float3 point)
     {
         point = default;
         
-        ref PlatformerCharacterComponent character = ref aspect.Character.ValueRW;
-        ref float3 characterPosition = ref aspect.CharacterAspect.LocalTransform.ValueRW.Position;
-        quaternion characterRotation = aspect.CharacterAspect.LocalTransform.ValueRW.Rotation;
+        ref PlatformerCharacterComponent character = ref processor.Character.ValueRW;
+        ref float3 characterPosition = ref processor.CharacterDataAccess.LocalTransform.ValueRW.Position;
+        quaternion characterRotation = processor.CharacterDataAccess.LocalTransform.ValueRW.Rotation;
 
         RigidTransform characterTransform = new RigidTransform(characterRotation, characterPosition);
         float3 ropeDetectionPoint = math.transform(characterTransform, character.LocalRopeAnchorPoint);

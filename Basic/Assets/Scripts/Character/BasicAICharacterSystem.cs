@@ -1,9 +1,6 @@
 using Unity.Burst;
-using Unity.Collections;
 using Unity.Entities;
-using Unity.Jobs;
 using Unity.Mathematics;
-using Unity.Transforms;
 
 [UpdateInGroup(typeof(SimulationSystemGroup), OrderFirst = true)]
 [UpdateBefore(typeof(FixedStepSimulationSystemGroup))]
@@ -11,23 +8,13 @@ using Unity.Transforms;
 public partial struct BasicAICharacterSystem : ISystem
 {
     [BurstCompile]
-    public void OnCreate(ref SystemState state)
-    {
-    }
-
-    [BurstCompile]
-    public void OnDestroy(ref SystemState state)
-    {
-    }
-
-    [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
         float time = (float)SystemAPI.Time.ElapsedTime;
 
         BasicAICharacterJob job = new BasicAICharacterJob
         {
-            Time = time,
+            Time = time
         };
         job.Schedule();
     }

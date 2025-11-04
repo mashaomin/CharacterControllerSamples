@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
@@ -17,13 +15,13 @@ namespace OnlineFPS
     public partial struct DelayedDespawnSystem : ISystem
     {
         [BurstCompile]
-        private void OnCreate(ref SystemState state)
+        public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<GameResources>();
         }
 
         [BurstCompile]
-        private void OnUpdate(ref SystemState state)
+        public void OnUpdate(ref SystemState state)
         {
             GameResources gameResources = SystemAPI.GetSingleton<GameResources>();
 

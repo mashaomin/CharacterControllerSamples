@@ -1,23 +1,21 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 public struct FixedInputEvent
 {
-    private byte _wasEverSet;
-    private uint _lastSetTick;
+    byte m_WasEverSet;
+    uint m_LastSetTick;
     
     public void Set(uint tick)
     {
-        _lastSetTick = tick;
-        _wasEverSet = 1;
+        m_LastSetTick = tick;
+        m_WasEverSet = 1;
     }
     
     public bool IsSet(uint tick)
     {
-        if (_wasEverSet == 1)
+        if (m_WasEverSet == 1)
         {
-            return tick == _lastSetTick;
+            return tick == m_LastSetTick;
         }
 
         return false;

@@ -55,7 +55,8 @@ public partial struct PlatformerCharacterPhysicsUpdateSystem : ISystem
             .WithAll<
                 PlatformerCharacterComponent,
                 PlatformerCharacterControl,
-                PlatformerCharacterStateMachine>()
+                PlatformerCharacterStateMachine,
+                CustomGravity>()
             .Build(ref state);
 
         _context = new PlatformerCharacterUpdateContext();
@@ -92,10 +93,45 @@ public partial struct PlatformerCharacterPhysicsUpdateSystem : ISystem
         public PlatformerCharacterUpdateContext Context;
         public KinematicCharacterUpdateContext BaseContext;
 
-        void Execute([ChunkIndexInQuery] int chunkIndex, PlatformerCharacterAspect characterAspect)
+        void Execute(
+            [ChunkIndexInQuery] int chunkIndex,
+            Entity entity,
+            RefRW<LocalTransform> localTransform,
+            RefRW<KinematicCharacterProperties> characterProperties,
+            RefRW<KinematicCharacterBody> characterBody,
+            RefRW<PhysicsCollider> physicsCollider,
+            RefRW<PlatformerCharacterComponent> characterComponent,
+            RefRW<PlatformerCharacterControl> characterControl,
+            RefRW<PlatformerCharacterStateMachine> stateMachine,
+            RefRW<CustomGravity> customGravity,
+            DynamicBuffer<KinematicCharacterHit> characterHitsBuffer,
+            DynamicBuffer<StatefulKinematicCharacterHit> statefulHitsBuffer,
+            DynamicBuffer<KinematicCharacterDeferredImpulse> deferredImpulsesBuffer,
+            DynamicBuffer<KinematicVelocityProjectionHit> velocityProjectionHits)
         {
             Context.SetChunkIndex(chunkIndex);
-            characterAspect.PhysicsUpdate(ref Context, ref BaseContext);
+
+            var characterProcessor = new PlatformerCharacterProcessor()
+            {
+                CharacterDataAccess = new KinematicCharacterDataAccess(
+
+                    entity,
+                    localTransform,
+                    characterProperties,
+                    characterBody,
+                    physicsCollider,
+                    characterHitsBuffer,
+                    statefulHitsBuffer,
+                    deferredImpulsesBuffer,
+                    velocityProjectionHits
+                ),
+                Character = characterComponent,
+                CharacterControl = characterControl,
+                StateMachine = stateMachine,
+                CustomGravity = customGravity
+            };
+
+            characterProcessor.PhysicsUpdate(ref Context, ref BaseContext);
         }
 
         public bool OnChunkBegin(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
@@ -125,7 +161,9 @@ public partial struct PlatformerCharacterVariableUpdateSystem : ISystem
         _characterQuery = KinematicCharacterUtilities.GetBaseCharacterQueryBuilder()
             .WithAll<
                 PlatformerCharacterComponent,
-                PlatformerCharacterControl>()
+                PlatformerCharacterControl,
+                PlatformerCharacterStateMachine,
+                CustomGravity>()
             .Build(ref state);
 
         _context = new PlatformerCharacterUpdateContext();
@@ -161,10 +199,45 @@ public partial struct PlatformerCharacterVariableUpdateSystem : ISystem
         public PlatformerCharacterUpdateContext Context;
         public KinematicCharacterUpdateContext BaseContext;
 
-        void Execute([ChunkIndexInQuery] int chunkIndex, PlatformerCharacterAspect characterAspect)
+        void Execute(
+            [ChunkIndexInQuery] int chunkIndex,
+            Entity entity,
+            RefRW<LocalTransform> localTransform,
+            RefRW<KinematicCharacterProperties> characterProperties,
+            RefRW<KinematicCharacterBody> characterBody,
+            RefRW<PhysicsCollider> physicsCollider,
+            RefRW<PlatformerCharacterComponent> characterComponent,
+            RefRW<PlatformerCharacterControl> characterControl,
+            RefRW<PlatformerCharacterStateMachine> stateMachine,
+            RefRW<CustomGravity> customGravity,
+            DynamicBuffer<KinematicCharacterHit> characterHitsBuffer,
+            DynamicBuffer<StatefulKinematicCharacterHit> statefulHitsBuffer,
+            DynamicBuffer<KinematicCharacterDeferredImpulse> deferredImpulsesBuffer,
+            DynamicBuffer<KinematicVelocityProjectionHit> velocityProjectionHits)
         {
             Context.SetChunkIndex(chunkIndex);
-            characterAspect.VariableUpdate(ref Context, ref BaseContext);
+
+            var characterProcessor = new PlatformerCharacterProcessor()
+            {
+                CharacterDataAccess = new KinematicCharacterDataAccess(
+
+                    entity,
+                    localTransform,
+                    characterProperties,
+                    characterBody,
+                    physicsCollider,
+                    characterHitsBuffer,
+                    statefulHitsBuffer,
+                    deferredImpulsesBuffer,
+                    velocityProjectionHits
+                ),
+                Character = characterComponent,
+                CharacterControl = characterControl,
+                StateMachine = stateMachine,
+                CustomGravity = customGravity
+            };
+
+            characterProcessor.VariableUpdate(ref Context, ref BaseContext);
         }
 
         public bool OnChunkBegin(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)

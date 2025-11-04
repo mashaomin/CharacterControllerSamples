@@ -1,11 +1,7 @@
 using Unity.Entities;
 using Unity.Mathematics;
-using Unity.Physics.Authoring;
 using UnityEngine;
 using Unity.CharacterController;
-using Unity.Physics;
-using System.Collections.Generic;
-using UnityEngine.Serialization;
 
 namespace OnlineFPS
 {
@@ -36,13 +32,10 @@ namespace OnlineFPS
                 Entity entity = GetEntity(TransformUsageFlags.Dynamic);
 
                 authoring.Character.ViewEntity = GetEntity(authoring.ViewObject, TransformUsageFlags.Dynamic);
-                authoring.Character.NameTagSocketEntity =
-                    GetEntity(authoring.NameTagSocket, TransformUsageFlags.Dynamic);
+                authoring.Character.NameTagSocketEntity = GetEntity(authoring.NameTagSocket, TransformUsageFlags.Dynamic);
                 authoring.Character.WeaponSocketEntity = GetEntity(authoring.WeaponSocket, TransformUsageFlags.Dynamic);
-                authoring.Character.WeaponAnimationSocketEntity =
-                    GetEntity(authoring.WeaponAnimationSocket, TransformUsageFlags.Dynamic);
-                authoring.Character.DeathVFXSpawnPoint =
-                    GetEntity(authoring.DeathVFXSpawnPoint, TransformUsageFlags.Dynamic);
+                authoring.Character.WeaponAnimationSocketEntity = GetEntity(authoring.WeaponAnimationSocket, TransformUsageFlags.Dynamic);
+                authoring.Character.DeathVFXSpawnPoint = GetEntity(authoring.DeathVFXSpawnPoint, TransformUsageFlags.Dynamic);
 
                 authoring.Character.DeathVFXColor = ((float4)(Vector4)authoring.DeathVFXColor).xyz;
                 authoring.Character.DeathVFXSize = authoring.DeathVFXSize;

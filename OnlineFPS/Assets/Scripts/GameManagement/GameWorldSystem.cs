@@ -1,9 +1,6 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Entities;
-using Unity.Logging;
 using Unity.NetCode;
 using UnityEngine;
 
@@ -34,9 +31,7 @@ namespace OnlineFPS
             public float RespawnScreenTimer;
         }
 
-        public struct RequestDisconnect : IComponentData
-        {
-        }
+        public struct RequestDisconnect : IComponentData { }
 
         public void OnCreate(ref SystemState state)
         {

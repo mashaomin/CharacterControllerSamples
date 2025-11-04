@@ -1,5 +1,4 @@
 using System;
-using Unity.Collections;
 using Unity.Entities;
 using Unity.CharacterController;
 using Unity.Mathematics;
@@ -24,183 +23,183 @@ public struct PlatformerCharacterStateMachine : IComponentData
     public FlyingNoCollisionsState FlyingNoCollisionsState;
     public RopeSwingState RopeSwingState;
 
-    public void TransitionToState(CharacterState newState, ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterAspect aspect)
+    public void TransitionToState(CharacterState newState, ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterProcessor processor)
     {
         PreviousState = CurrentState;
         CurrentState = newState;
 
-        OnStateExit(PreviousState, CurrentState, ref context, ref baseContext, in aspect);
-        OnStateEnter(CurrentState, PreviousState, ref context, ref baseContext, in aspect);
+        OnStateExit(PreviousState, CurrentState, ref context, ref baseContext, in processor);
+        OnStateEnter(CurrentState, PreviousState, ref context, ref baseContext, in processor);
     }
 
-    public void OnStateEnter(CharacterState state, CharacterState previousState, ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterAspect aspect)
+    public void OnStateEnter(CharacterState state, CharacterState previousState, ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterProcessor processor)
     {
         switch (state)
         {
             case CharacterState.GroundMove:
-                GroundMoveState.OnStateEnter(previousState, ref context, ref baseContext, in aspect);
+                GroundMoveState.OnStateEnter(previousState, ref context, ref baseContext, in processor);
                 break;
             case CharacterState.Crouched:
-                CrouchedState.OnStateEnter(previousState, ref context, ref baseContext, in aspect);
+                CrouchedState.OnStateEnter(previousState, ref context, ref baseContext, in processor);
                 break;
             case CharacterState.AirMove:
-                AirMoveState.OnStateEnter(previousState, ref context, ref baseContext, in aspect);
+                AirMoveState.OnStateEnter(previousState, ref context, ref baseContext, in processor);
                 break;
             case CharacterState.WallRun:
-                WallRunState.OnStateEnter(previousState, ref context, ref baseContext, in aspect);
+                WallRunState.OnStateEnter(previousState, ref context, ref baseContext, in processor);
                 break;
             case CharacterState.Rolling:
-                RollingState.OnStateEnter(previousState, ref context, ref baseContext, in aspect);
+                RollingState.OnStateEnter(previousState, ref context, ref baseContext, in processor);
                 break;
             case CharacterState.LedgeGrab:
-                LedgeGrabState.OnStateEnter(previousState, ref context, ref baseContext, in aspect);
+                LedgeGrabState.OnStateEnter(previousState, ref context, ref baseContext, in processor);
                 break;
             case CharacterState.LedgeStandingUp:
-                LedgeStandingUpState.OnStateEnter(previousState, ref context, ref baseContext, in aspect);
+                LedgeStandingUpState.OnStateEnter(previousState, ref context, ref baseContext, in processor);
                 break;
             case CharacterState.Dashing:
-                DashingState.OnStateEnter(previousState, ref context, ref baseContext, in aspect);
+                DashingState.OnStateEnter(previousState, ref context, ref baseContext, in processor);
                 break;
             case CharacterState.Swimming:
-                SwimmingState.OnStateEnter(previousState, ref context, ref baseContext, in aspect);
+                SwimmingState.OnStateEnter(previousState, ref context, ref baseContext, in processor);
                 break;
             case CharacterState.Climbing:
-                ClimbingState.OnStateEnter(previousState, ref context, ref baseContext, in aspect);
+                ClimbingState.OnStateEnter(previousState, ref context, ref baseContext, in processor);
                 break;
             case CharacterState.FlyingNoCollisions:
-                FlyingNoCollisionsState.OnStateEnter(previousState, ref context, ref baseContext, in aspect);
+                FlyingNoCollisionsState.OnStateEnter(previousState, ref context, ref baseContext, in processor);
                 break;
             case CharacterState.RopeSwing:
-                RopeSwingState.OnStateEnter(previousState, ref context, ref baseContext, in aspect);
+                RopeSwingState.OnStateEnter(previousState, ref context, ref baseContext, in processor);
                 break;
         }
     }
 
-    public void OnStateExit(CharacterState state, CharacterState newState, ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterAspect aspect)
+    public void OnStateExit(CharacterState state, CharacterState newState, ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterProcessor processor)
     {
         switch (state)
         {
             case CharacterState.GroundMove:
-                GroundMoveState.OnStateExit(newState, ref context, ref baseContext, in aspect);
+                GroundMoveState.OnStateExit(newState, ref context, ref baseContext, in processor);
                 break;
             case CharacterState.Crouched:
-                CrouchedState.OnStateExit(newState, ref context, ref baseContext, in aspect);
+                CrouchedState.OnStateExit(newState, ref context, ref baseContext, in processor);
                 break;
             case CharacterState.AirMove:
-                AirMoveState.OnStateExit(newState, ref context, ref baseContext, in aspect);
+                AirMoveState.OnStateExit(newState, ref context, ref baseContext, in processor);
                 break;
             case CharacterState.WallRun:
-                WallRunState.OnStateExit(newState, ref context, ref baseContext, in aspect);
+                WallRunState.OnStateExit(newState, ref context, ref baseContext, in processor);
                 break;
             case CharacterState.Rolling:
-                RollingState.OnStateExit(newState, ref context, ref baseContext, in aspect);
+                RollingState.OnStateExit(newState, ref context, ref baseContext, in processor);
                 break;
             case CharacterState.LedgeGrab:
-                LedgeGrabState.OnStateExit(newState, ref context, ref baseContext, in aspect);
+                LedgeGrabState.OnStateExit(newState, ref context, ref baseContext, in processor);
                 break;
             case CharacterState.LedgeStandingUp:
-                LedgeStandingUpState.OnStateExit(newState, ref context, ref baseContext, in aspect);
+                LedgeStandingUpState.OnStateExit(newState, ref context, ref baseContext, in processor);
                 break;
             case CharacterState.Dashing:
-                DashingState.OnStateExit(newState, ref context, ref baseContext, in aspect);
+                DashingState.OnStateExit(newState, ref context, ref baseContext, in processor);
                 break;
             case CharacterState.Swimming:
-                SwimmingState.OnStateExit(newState, ref context, ref baseContext, in aspect);
+                SwimmingState.OnStateExit(newState, ref context, ref baseContext, in processor);
                 break;
             case CharacterState.Climbing:
-                ClimbingState.OnStateExit(newState, ref context, ref baseContext, in aspect);
+                ClimbingState.OnStateExit(newState, ref context, ref baseContext, in processor);
                 break;
             case CharacterState.FlyingNoCollisions:
-                FlyingNoCollisionsState.OnStateExit(newState, ref context, ref baseContext, in aspect);
+                FlyingNoCollisionsState.OnStateExit(newState, ref context, ref baseContext, in processor);
                 break;
             case CharacterState.RopeSwing:
-                RopeSwingState.OnStateExit(newState, ref context, ref baseContext, in aspect);
+                RopeSwingState.OnStateExit(newState, ref context, ref baseContext, in processor);
                 break;
         }
     }
 
-    public void OnStatePhysicsUpdate(CharacterState state, ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterAspect aspect)
+    public void OnStatePhysicsUpdate(CharacterState state, ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterProcessor processor)
     {
         switch (state)
         {
             case CharacterState.GroundMove:
-                GroundMoveState.OnStatePhysicsUpdate(ref context, ref baseContext, in aspect);
+                GroundMoveState.OnStatePhysicsUpdate(ref context, ref baseContext, in processor);
                 break;
             case CharacterState.Crouched:
-                CrouchedState.OnStatePhysicsUpdate(ref context, ref baseContext, in aspect);
+                CrouchedState.OnStatePhysicsUpdate(ref context, ref baseContext, in processor);
                 break;
             case CharacterState.AirMove:
-                AirMoveState.OnStatePhysicsUpdate(ref context, ref baseContext, in aspect);
+                AirMoveState.OnStatePhysicsUpdate(ref context, ref baseContext, in processor);
                 break;
             case CharacterState.WallRun:
-                WallRunState.OnStatePhysicsUpdate(ref context, ref baseContext, in aspect);
+                WallRunState.OnStatePhysicsUpdate(ref context, ref baseContext, in processor);
                 break;
             case CharacterState.Rolling:
-                RollingState.OnStatePhysicsUpdate(ref context, ref baseContext, in aspect);
+                RollingState.OnStatePhysicsUpdate(ref context, ref baseContext, in processor);
                 break;
             case CharacterState.LedgeGrab:
-                LedgeGrabState.OnStatePhysicsUpdate(ref context, ref baseContext, in aspect);
+                LedgeGrabState.OnStatePhysicsUpdate(ref context, ref baseContext, in processor);
                 break;
             case CharacterState.LedgeStandingUp:
-                LedgeStandingUpState.OnStatePhysicsUpdate(ref context, ref baseContext, in aspect);
+                LedgeStandingUpState.OnStatePhysicsUpdate(ref context, ref baseContext, in processor);
                 break;
             case CharacterState.Dashing:
-                DashingState.OnStatePhysicsUpdate(ref context, ref baseContext, in aspect);
+                DashingState.OnStatePhysicsUpdate(ref context, ref baseContext, in processor);
                 break;
             case CharacterState.Swimming:
-                SwimmingState.OnStatePhysicsUpdate(ref context, ref baseContext, in aspect);
+                SwimmingState.OnStatePhysicsUpdate(ref context, ref baseContext, in processor);
                 break;
             case CharacterState.Climbing:
-                ClimbingState.OnStatePhysicsUpdate(ref context, ref baseContext, in aspect);
+                ClimbingState.OnStatePhysicsUpdate(ref context, ref baseContext, in processor);
                 break;
             case CharacterState.FlyingNoCollisions:
-                FlyingNoCollisionsState.OnStatePhysicsUpdate(ref context, ref baseContext, in aspect);
+                FlyingNoCollisionsState.OnStatePhysicsUpdate(ref context, ref baseContext, in processor);
                 break;
             case CharacterState.RopeSwing:
-                RopeSwingState.OnStatePhysicsUpdate(ref context, ref baseContext, in aspect);
+                RopeSwingState.OnStatePhysicsUpdate(ref context, ref baseContext, in processor);
                 break;
         }
     }
 
-    public void OnStateVariableUpdate(CharacterState state, ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterAspect aspect)
+    public void OnStateVariableUpdate(CharacterState state, ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterProcessor processor)
     {
         switch (state)
         {
             case CharacterState.GroundMove:
-                GroundMoveState.OnStateVariableUpdate(ref context, ref baseContext, in aspect);
+                GroundMoveState.OnStateVariableUpdate(ref context, ref baseContext, in processor);
                 break;
             case CharacterState.Crouched:
-                CrouchedState.OnStateVariableUpdate(ref context, ref baseContext, in aspect);
+                CrouchedState.OnStateVariableUpdate(ref context, ref baseContext, in processor);
                 break;
             case CharacterState.AirMove:
-                AirMoveState.OnStateVariableUpdate(ref context, ref baseContext, in aspect);
+                AirMoveState.OnStateVariableUpdate(ref context, ref baseContext, in processor);
                 break;
             case CharacterState.WallRun:
-                WallRunState.OnStateVariableUpdate(ref context, ref baseContext, in aspect);
+                WallRunState.OnStateVariableUpdate(ref context, ref baseContext, in processor);
                 break;
             case CharacterState.Rolling:
-                RollingState.OnStateVariableUpdate(ref context, ref baseContext, in aspect);
+                RollingState.OnStateVariableUpdate(ref context, ref baseContext, in processor);
                 break;
             case CharacterState.LedgeGrab:
-                LedgeGrabState.OnStateVariableUpdate(ref context, ref baseContext, in aspect);
+                LedgeGrabState.OnStateVariableUpdate(ref context, ref baseContext, in processor);
                 break;
             case CharacterState.LedgeStandingUp:
-                LedgeStandingUpState.OnStateVariableUpdate(ref context, ref baseContext, in aspect);
+                LedgeStandingUpState.OnStateVariableUpdate(ref context, ref baseContext, in processor);
                 break;
             case CharacterState.Dashing:
-                DashingState.OnStateVariableUpdate(ref context, ref baseContext, in aspect);
+                DashingState.OnStateVariableUpdate(ref context, ref baseContext, in processor);
                 break;
             case CharacterState.Swimming:
-                SwimmingState.OnStateVariableUpdate(ref context, ref baseContext, in aspect);
+                SwimmingState.OnStateVariableUpdate(ref context, ref baseContext, in processor);
                 break;
             case CharacterState.Climbing:
-                ClimbingState.OnStateVariableUpdate(ref context, ref baseContext, in aspect);
+                ClimbingState.OnStateVariableUpdate(ref context, ref baseContext, in processor);
                 break;
             case CharacterState.FlyingNoCollisions:
-                FlyingNoCollisionsState.OnStateVariableUpdate(ref context, ref baseContext, in aspect);
+                FlyingNoCollisionsState.OnStateVariableUpdate(ref context, ref baseContext, in processor);
                 break;
             case CharacterState.RopeSwing:
-                RopeSwingState.OnStateVariableUpdate(ref context, ref baseContext, in aspect);
+                RopeSwingState.OnStateVariableUpdate(ref context, ref baseContext, in processor);
                 break;
         }
     }

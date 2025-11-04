@@ -1,11 +1,5 @@
 using Unity.Burst;
-using Unity.Collections;
 using Unity.Entities;
-using Unity.Jobs;
-using Unity.Mathematics;
-using Unity.Physics.Authoring;
-using Unity.Physics.GraphicsIntegration;
-using Unity.Physics.Systems;
 using Unity.Transforms;
 using UnityEngine;
 
@@ -14,14 +8,6 @@ using UnityEngine;
 [BurstCompile]
 public partial struct SceneInitializationSystem : ISystem
 {
-    [BurstCompile]
-    public void OnCreate(ref SystemState state)
-    { }
-
-    [BurstCompile]
-    public void OnDestroy(ref SystemState state)
-    { }
-
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {

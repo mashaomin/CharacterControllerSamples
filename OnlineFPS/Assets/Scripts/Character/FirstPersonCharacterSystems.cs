@@ -2,7 +2,6 @@ using Unity.Burst;
 using Unity.Burst.Intrinsics;
 using Unity.Entities;
 using Unity.Collections;
-using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Physics;
 using Unity.Transforms;
@@ -15,7 +14,7 @@ namespace OnlineFPS
     [UpdateInGroup(typeof(PredictedSimulationSystemGroup), OrderFirst = true)]
     [UpdateBefore(typeof(PredictedFixedStepSimulationSystemGroup))]
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ThinClientSimulation |
-                       WorldSystemFilterFlags.ServerSimulation)]
+        WorldSystemFilterFlags.ServerSimulation)]
     [BurstCompile]
     public partial struct BuildCharacterPredictedRotationSystem : ISystem
     {
@@ -29,8 +28,7 @@ namespace OnlineFPS
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
-            BuildCharacterPredictedRotationJob job = new BuildCharacterPredictedRotationJob
-                { };
+            BuildCharacterPredictedRotationJob job = new BuildCharacterPredictedRotationJob();
             state.Dependency = job.Schedule(state.Dependency);
         }
 
@@ -100,29 +98,30 @@ namespace OnlineFPS
 
     [UpdateInGroup(typeof(KinematicCharacterPhysicsUpdateGroup))]
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ThinClientSimulation |
-                       WorldSystemFilterFlags.ServerSimulation)]
+        WorldSystemFilterFlags.ServerSimulation)]
     [BurstCompile]
     public partial struct FirstPersonCharacterPhysicsUpdateSystem : ISystem
     {
-        private EntityQuery _characterQuery;
-        private FirstPersonCharacterUpdateContext _context;
-        private KinematicCharacterUpdateContext _baseContext;
+        EntityQuery m_CharacterQuery;
+        FirstPersonCharacterUpdateContext m_Context;
+        KinematicCharacterUpdateContext m_BaseContext;
 
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
-            _characterQuery = KinematicCharacterUtilities.GetBaseCharacterQueryBuilder()
+            m_CharacterQuery = KinematicCharacterUtilities.GetBaseCharacterQueryBuilder()
                 .WithAll<
                     FirstPersonCharacterComponent,
-                    FirstPersonCharacterControl>()
+                    FirstPersonCharacterControl,
+                    ActiveWeapon>()
                 .Build(ref state);
 
-            _context = new FirstPersonCharacterUpdateContext();
-            _context.OnSystemCreate(ref state);
-            _baseContext = new KinematicCharacterUpdateContext();
-            _baseContext.OnSystemCreate(ref state);
+            m_Context = new FirstPersonCharacterUpdateContext();
+            m_Context.OnSystemCreate(ref state);
+            m_BaseContext = new KinematicCharacterUpdateContext();
+            m_BaseContext.OnSystemCreate(ref state);
 
-            state.RequireForUpdate(_characterQuery);
+            state.RequireForUpdate(m_CharacterQuery);
             state.RequireForUpdate<NetworkTime>();
             state.RequireForUpdate<PhysicsWorldSingleton>();
         }
@@ -133,13 +132,13 @@ namespace OnlineFPS
             if (!SystemAPI.HasSingleton<NetworkTime>())
                 return;
 
-            _context.OnSystemUpdate(ref state);
-            _baseContext.OnSystemUpdate(ref state, SystemAPI.Time, SystemAPI.GetSingleton<PhysicsWorldSingleton>());
+            m_Context.OnSystemUpdate(ref state);
+            m_BaseContext.OnSystemUpdate(ref state, SystemAPI.Time, SystemAPI.GetSingleton<PhysicsWorldSingleton>());
 
             FirstPersonCharacterPhysicsUpdateJob job = new FirstPersonCharacterPhysicsUpdateJob
             {
-                Context = _context,
-                BaseContext = _baseContext,
+                Context = m_Context,
+                BaseContext = m_BaseContext,
             };
             state.Dependency = job.Schedule(state.Dependency);
         }
@@ -152,9 +151,40 @@ namespace OnlineFPS
             public FirstPersonCharacterUpdateContext Context;
             public KinematicCharacterUpdateContext BaseContext;
 
-            void Execute(FirstPersonCharacterAspect characterAspect)
+            void Execute(
+                Entity entity,
+                RefRW<LocalTransform> localTransform,
+                RefRW<KinematicCharacterProperties> characterProperties,
+                RefRW<KinematicCharacterBody> characterBody,
+                RefRW<PhysicsCollider> physicsCollider,
+                RefRW<FirstPersonCharacterComponent> characterComponent,
+                RefRW<FirstPersonCharacterControl> characterControl,
+                RefRW<ActiveWeapon> activeWeapon,
+                DynamicBuffer<KinematicCharacterHit> characterHitsBuffer,
+                DynamicBuffer<StatefulKinematicCharacterHit> statefulHitsBuffer,
+                DynamicBuffer<KinematicCharacterDeferredImpulse> deferredImpulsesBuffer,
+                DynamicBuffer<KinematicVelocityProjectionHit> velocityProjectionHits)
             {
-                characterAspect.PhysicsUpdate(ref Context, ref BaseContext);
+                var characterProcessor = new FirstPersonCharacterProcessor()
+                {
+                    CharacterDataAccess = new KinematicCharacterDataAccess(
+
+                        entity,
+                        localTransform,
+                        characterProperties,
+                        characterBody,
+                        physicsCollider,
+                        characterHitsBuffer,
+                        statefulHitsBuffer,
+                        deferredImpulsesBuffer,
+                        velocityProjectionHits
+                    ),
+                    CharacterComponent = characterComponent,
+                    CharacterControl = characterControl,
+                    ActiveWeapon = activeWeapon
+                };
+
+                characterProcessor.PhysicsUpdate(ref Context, ref BaseContext);
             }
 
             public bool OnChunkBegin(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask,
@@ -165,9 +195,7 @@ namespace OnlineFPS
             }
 
             public void OnChunkEnd(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask,
-                in v128 chunkEnabledMask, bool chunkWasExecuted)
-            {
-            }
+                in v128 chunkEnabledMask, bool chunkWasExecuted) { }
         }
     }
 
@@ -176,41 +204,42 @@ namespace OnlineFPS
     [UpdateAfter(typeof(FirstPersonPlayerVariableStepControlSystem))]
     [UpdateAfter(typeof(BuildCharacterPredictedRotationSystem))]
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ThinClientSimulation |
-                       WorldSystemFilterFlags.ServerSimulation)]
+        WorldSystemFilterFlags.ServerSimulation)]
     [BurstCompile]
     public partial struct FirstPersonCharacterVariableUpdateSystem : ISystem
     {
-        private EntityQuery _characterQuery;
-        private FirstPersonCharacterUpdateContext _context;
-        private KinematicCharacterUpdateContext _baseContext;
+        EntityQuery m_CharacterQuery;
+        FirstPersonCharacterUpdateContext m_Context;
+        KinematicCharacterUpdateContext m_BaseContext;
 
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
-            _characterQuery = KinematicCharacterUtilities.GetBaseCharacterQueryBuilder()
+            m_CharacterQuery = KinematicCharacterUtilities.GetBaseCharacterQueryBuilder()
                 .WithAll<
                     FirstPersonCharacterComponent,
-                    FirstPersonCharacterControl>()
+                    FirstPersonCharacterControl,
+                    ActiveWeapon>()
                 .Build(ref state);
 
-            _context = new FirstPersonCharacterUpdateContext();
-            _context.OnSystemCreate(ref state);
-            _baseContext = new KinematicCharacterUpdateContext();
-            _baseContext.OnSystemCreate(ref state);
+            m_Context = new FirstPersonCharacterUpdateContext();
+            m_Context.OnSystemCreate(ref state);
+            m_BaseContext = new KinematicCharacterUpdateContext();
+            m_BaseContext.OnSystemCreate(ref state);
 
-            state.RequireForUpdate(_characterQuery);
+            state.RequireForUpdate(m_CharacterQuery);
         }
 
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
-            _context.OnSystemUpdate(ref state);
-            _baseContext.OnSystemUpdate(ref state, SystemAPI.Time, SystemAPI.GetSingleton<PhysicsWorldSingleton>());
+            m_Context.OnSystemUpdate(ref state);
+            m_BaseContext.OnSystemUpdate(ref state, SystemAPI.Time, SystemAPI.GetSingleton<PhysicsWorldSingleton>());
 
             FirstPersonCharacterVariableUpdateJob variableUpdateJob = new FirstPersonCharacterVariableUpdateJob
             {
-                Context = _context,
-                BaseContext = _baseContext,
+                Context = m_Context,
+                BaseContext = m_BaseContext,
             };
             state.Dependency = variableUpdateJob.Schedule(state.Dependency);
 
@@ -229,9 +258,40 @@ namespace OnlineFPS
             public FirstPersonCharacterUpdateContext Context;
             public KinematicCharacterUpdateContext BaseContext;
 
-            void Execute(FirstPersonCharacterAspect characterAspect)
+            void Execute(
+                Entity entity,
+                RefRW<LocalTransform> localTransform,
+                RefRW<KinematicCharacterProperties> characterProperties,
+                RefRW<KinematicCharacterBody> characterBody,
+                RefRW<PhysicsCollider> physicsCollider,
+                RefRW<FirstPersonCharacterComponent> characterComponent,
+                RefRW<FirstPersonCharacterControl> characterControl,
+                RefRW<ActiveWeapon> activeWeapon,
+                DynamicBuffer<KinematicCharacterHit> characterHitsBuffer,
+                DynamicBuffer<StatefulKinematicCharacterHit> statefulHitsBuffer,
+                DynamicBuffer<KinematicCharacterDeferredImpulse> deferredImpulsesBuffer,
+                DynamicBuffer<KinematicVelocityProjectionHit> velocityProjectionHits)
             {
-                characterAspect.VariableUpdate(ref Context, ref BaseContext);
+                var characterProcessor = new FirstPersonCharacterProcessor()
+                {
+                    CharacterDataAccess = new KinematicCharacterDataAccess(
+
+                        entity,
+                        localTransform,
+                        characterProperties,
+                        characterBody,
+                        physicsCollider,
+                        characterHitsBuffer,
+                        statefulHitsBuffer,
+                        deferredImpulsesBuffer,
+                        velocityProjectionHits
+                    ),
+                    CharacterComponent = characterComponent,
+                    CharacterControl = characterControl,
+                    ActiveWeapon = activeWeapon
+                };
+
+                characterProcessor.VariableUpdate(ref Context, ref BaseContext);
             }
 
             public bool OnChunkBegin(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask,
@@ -242,16 +302,15 @@ namespace OnlineFPS
             }
 
             public void OnChunkEnd(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask,
-                in v128 chunkEnabledMask, bool chunkWasExecuted)
-            {
-            }
+                in v128 chunkEnabledMask, bool chunkWasExecuted) { }
         }
 
         [BurstCompile]
         [WithAll(typeof(Simulate))]
         public partial struct FirstPersonCharacterViewJob : IJobEntity
         {
-            [ReadOnly] public ComponentLookup<FirstPersonCharacterComponent> FirstPersonCharacterLookup;
+            [ReadOnly]
+            public ComponentLookup<FirstPersonCharacterComponent> FirstPersonCharacterLookup;
 
             void Execute(ref LocalTransform localTransform, in FirstPersonCharacterView characterView)
             {
@@ -288,7 +347,8 @@ namespace OnlineFPS
         public partial struct FirstPersonCharacterViewRollJob : IJobEntity
         {
             public float DeltaTime;
-            [ReadOnly] public ComponentLookup<FirstPersonCharacterView> FirstPersonCharacterViewLookup;
+            [ReadOnly]
+            public ComponentLookup<FirstPersonCharacterView> FirstPersonCharacterViewLookup;
             public ComponentLookup<LocalTransform> LocalTransformLookup;
 
             void Execute(Entity entity, ref FirstPersonCharacterComponent characterComponent,

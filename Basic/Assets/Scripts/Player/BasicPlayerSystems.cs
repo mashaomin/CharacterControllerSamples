@@ -1,18 +1,15 @@
 using Unity.Burst;
-using Unity.Collections;
 using Unity.Entities;
-using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine;
 using Unity.CharacterController;
-using Unity.Physics.Systems;
 
 [UpdateInGroup(typeof(SimulationSystemGroup), OrderFirst = true)]
 [UpdateBefore(typeof(FixedStepSimulationSystemGroup))]
 public partial class BasicPlayerInputsSystem : SystemBase
 {
-    private BasicInputActions InputActions;
+    BasicInputActions m_InputActions;
 
     protected override void OnCreate()
     {
@@ -21,14 +18,14 @@ public partial class BasicPlayerInputsSystem : SystemBase
         RequireForUpdate<FixedTickSystem.Singleton>();
         RequireForUpdate(SystemAPI.QueryBuilder().WithAll<BasicPlayer, BasicPlayerInputs>().Build());
 
-        InputActions = new BasicInputActions();
-        InputActions.Enable();
-        InputActions.DefaultMap.Enable();
+        m_InputActions = new BasicInputActions();
+        m_InputActions.Enable();
+        m_InputActions.DefaultMap.Enable();
     }
 
     protected override void OnUpdate()
     {
-        BasicInputActions.DefaultMapActions defaultMapActions = InputActions.DefaultMap;
+        BasicInputActions.DefaultMapActions defaultMapActions = m_InputActions.DefaultMap;
         uint tick = SystemAPI.GetSingleton<FixedTickSystem.Singleton>().Tick;
 
         foreach (var (playerInputs, player) in SystemAPI.Query<RefRW<BasicPlayerInputs>, BasicPlayer>())
@@ -67,17 +64,17 @@ public partial struct BasicPlayerVariableStepControlSystem : ISystem
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
-        foreach (var (playerInputs, player) in SystemAPI.Query<BasicPlayerInputs, BasicPlayer>().WithAll<Simulate>())
+        foreach (var (playerInputs, player) in SystemAPI.Query<RefRO<BasicPlayerInputs>, RefRO<BasicPlayer>>().WithAll<Simulate>())
         {
-            if (SystemAPI.HasComponent<OrbitCameraControl>(player.ControlledCamera))
+            if (SystemAPI.HasComponent<OrbitCameraControl>(player.ValueRO.ControlledCamera))
             {
-                OrbitCameraControl cameraControl = SystemAPI.GetComponent<OrbitCameraControl>(player.ControlledCamera);
+                OrbitCameraControl cameraControl = SystemAPI.GetComponent<OrbitCameraControl>(player.ValueRO.ControlledCamera);
 
-                cameraControl.FollowedCharacterEntity = player.ControlledCharacter;
-                cameraControl.LookDegreesDelta = playerInputs.CameraLookInput;
-                cameraControl.ZoomDelta = playerInputs.CameraZoomInput;
+                cameraControl.FollowedCharacterEntity = player.ValueRO.ControlledCharacter;
+                cameraControl.LookDegreesDelta = playerInputs.ValueRO.CameraLookInput;
+                cameraControl.ZoomDelta = playerInputs.ValueRO.CameraZoomInput;
 
-                SystemAPI.SetComponent(player.ControlledCamera, cameraControl);
+                SystemAPI.SetComponent(player.ValueRO.ControlledCamera, cameraControl);
             }
         }
     }

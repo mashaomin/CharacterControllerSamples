@@ -1,9 +1,6 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Entities;
-using Unity.Entities.Serialization;
 using Unity.Scenes;
 using UnityEngine;
 
@@ -31,15 +28,15 @@ namespace OnlineFPS
             return requestEntity;
         }
 
-        private EntityQuery _sceneLoadRequestQuery;
+        private EntityQuery m_SceneLoadRequestQuery;
 
         public void OnCreate(ref SystemState state)
         {
-            _sceneLoadRequestQuery = new EntityQueryBuilder(Allocator.Temp)
+            m_SceneLoadRequestQuery = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<SceneLoadRequest, SceneIdentifier>()
                 .Build(ref state);
 
-            state.RequireForUpdate(_sceneLoadRequestQuery);
+            state.RequireForUpdate(m_SceneLoadRequestQuery);
         }
 
         public void OnDestroy(ref SystemState state)

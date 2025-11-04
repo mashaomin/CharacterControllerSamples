@@ -1,7 +1,7 @@
 
 # Tutorial - Double Jump
 
-We will now add the ability to allow up to X additional jumps while in air. 
+We will now add the ability to allow up to X additional jumps while in air.
 
 We will start by adding an int field in `ThirdPersonCharacterComponent` to determine how many air jumps we are allowed to do, and we will also add another int field to keep track of how many air jumps we've done so far.
 
@@ -18,10 +18,10 @@ public struct ThirdPersonCharacterComponent : IComponentData
 }
 ```
 
-The rest of the implementation will be done in `ThirdPersonCharacterAspect.HandleVelocityControl`. If we are not grounded and a jump is requested, we will check if we have reached our max in-air jumps count, and if not, we will jump. Also, when we are grounded, we always reset our `CurrentAirJumps` to 0.
+The rest of the implementation will be done in `ThirdPersonCharacterAProcessor.HandleVelocityControl`. If we are not grounded and a jump is requested, we will check if we have reached our max in-air jumps count, and if not, we will jump. Also, when we are grounded, we always reset our `CurrentAirJumps` to 0.
 
 ```cs
-public readonly partial struct ThirdPersonCharacterAspect : IAspect, IKinematicCharacterProcessor<ThirdPersonCharacterUpdateContext>
+public readonly partial struct ThirdPersonCharacterProcessor : IKinematicCharacterProcessor<ThirdPersonCharacterUpdateContext>
 {
     // (...)
 

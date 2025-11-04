@@ -1,19 +1,9 @@
 using System;
-using System.Collections.Generic;
-using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
-using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Physics;
-using Unity.Physics.Authoring;
-using Unity.Physics.Extensions;
-using Unity.Physics.Systems;
-using Unity.Transforms;
 using Unity.CharacterController;
-using Unity.Collections.LowLevel.Unsafe;
-using Unity.Logging;
-using Unity.NetCode;
 using UnityEngine;
 
 namespace OnlineFPS
@@ -38,48 +28,113 @@ namespace OnlineFPS
         }
     }
 
-    public readonly partial struct FirstPersonCharacterAspect : IAspect,
-        IKinematicCharacterProcessor<FirstPersonCharacterUpdateContext>
+    public struct FirstPersonCharacterProcessor : IKinematicCharacterProcessor<FirstPersonCharacterUpdateContext>
     {
-        public readonly KinematicCharacterAspect CharacterAspect;
-        public readonly RefRW<FirstPersonCharacterComponent> CharacterComponent;
-        public readonly RefRW<FirstPersonCharacterControl> CharacterControl;
-        public readonly RefRW<ActiveWeapon> ActiveWeapon;
+        public KinematicCharacterDataAccess CharacterDataAccess;
+        public RefRW<FirstPersonCharacterComponent> CharacterComponent;
+        public RefRW<FirstPersonCharacterControl> CharacterControl;
+        public RefRW<ActiveWeapon> ActiveWeapon;
 
         public void PhysicsUpdate(ref FirstPersonCharacterUpdateContext context,
             ref KinematicCharacterUpdateContext baseContext)
         {
             ref FirstPersonCharacterComponent characterComponent = ref CharacterComponent.ValueRW;
-            ref KinematicCharacterBody characterBody = ref CharacterAspect.CharacterBody.ValueRW;
-            ref float3 characterPosition = ref CharacterAspect.LocalTransform.ValueRW.Position;
+            ref KinematicCharacterBody characterBody = ref CharacterDataAccess.CharacterBody.ValueRW;
+            ref float3 characterPosition = ref CharacterDataAccess.LocalTransform.ValueRW.Position;
 
             // First phase of default character update
-            CharacterAspect.Update_Initialize(in this, ref context, ref baseContext, ref characterBody,
+            KinematicCharacterUtilities.Update_Initialize(
+                in this,
+                ref context,
+                ref baseContext,
+                ref characterBody,
+                CharacterDataAccess.CharacterHitsBuffer,
+                CharacterDataAccess.DeferredImpulsesBuffer,
+                CharacterDataAccess.VelocityProjectionHits,
                 baseContext.Time.DeltaTime);
-            CharacterAspect.Update_ParentMovement(in this, ref context, ref baseContext, ref characterBody,
-                ref characterPosition, characterBody.WasGroundedBeforeCharacterUpdate);
-            CharacterAspect.Update_Grounding(in this, ref context, ref baseContext, ref characterBody,
+
+            KinematicCharacterUtilities.Update_ParentMovement(
+                in this,
+                ref context,
+                ref baseContext,
+                CharacterDataAccess.CharacterEntity,
+                ref characterBody,
+                CharacterDataAccess.CharacterProperties.ValueRO,
+                CharacterDataAccess.PhysicsCollider.ValueRO,
+                CharacterDataAccess.LocalTransform.ValueRO,
+                ref characterPosition,
+                characterBody.WasGroundedBeforeCharacterUpdate);
+
+            KinematicCharacterUtilities.Update_Grounding(
+                in this,
+                ref context,
+                ref baseContext,
+                ref characterBody,
+                CharacterDataAccess.CharacterEntity,
+                CharacterDataAccess.CharacterProperties.ValueRO,
+                CharacterDataAccess.PhysicsCollider.ValueRO,
+                CharacterDataAccess.LocalTransform.ValueRO,
+                CharacterDataAccess.VelocityProjectionHits,
+                CharacterDataAccess.CharacterHitsBuffer,
                 ref characterPosition);
 
             // Update desired character velocity after grounding was detected, but before doing additional processing that depends on velocity
             HandleVelocityControl(ref context, ref baseContext);
 
             // Second phase of default character update
-            CharacterAspect.Update_PreventGroundingFromFutureSlopeChange(in this, ref context, ref baseContext,
-                ref characterBody, in characterComponent.StepAndSlopeHandling);
-            CharacterAspect.Update_GroundPushing(in this, ref context, ref baseContext, characterComponent.Gravity);
-            CharacterAspect.Update_MovementAndDecollisions(in this, ref context, ref baseContext, ref characterBody,
+            KinematicCharacterUtilities.Update_PreventGroundingFromFutureSlopeChange(
+                in this,
+                ref context,
+                ref baseContext,
+                CharacterDataAccess.CharacterEntity,
+                ref characterBody,
+                CharacterDataAccess.CharacterProperties.ValueRO,
+                CharacterDataAccess.PhysicsCollider.ValueRO,
+                in characterComponent.StepAndSlopeHandling);
+
+            KinematicCharacterUtilities.Update_GroundPushing(
+                in this,
+                ref context,
+                ref baseContext,
+                ref characterBody,
+                CharacterDataAccess.CharacterProperties.ValueRO,
+                CharacterDataAccess.LocalTransform.ValueRO,
+                CharacterDataAccess.DeferredImpulsesBuffer,
+                characterComponent.Gravity);
+
+            KinematicCharacterUtilities.Update_MovementAndDecollisions(
+                in this,
+                ref context,
+                ref baseContext,
+                CharacterDataAccess.CharacterEntity,
+                ref characterBody,
+                CharacterDataAccess.CharacterProperties.ValueRO,
+                CharacterDataAccess.PhysicsCollider.ValueRO,
+                CharacterDataAccess.LocalTransform.ValueRO,
+                CharacterDataAccess.VelocityProjectionHits,
+                CharacterDataAccess.CharacterHitsBuffer,
+                CharacterDataAccess.DeferredImpulsesBuffer,
                 ref characterPosition);
-            CharacterAspect.Update_MovingPlatformDetection(ref baseContext, ref characterBody);
-            CharacterAspect.Update_ParentMomentum(ref baseContext, ref characterBody);
-            CharacterAspect.Update_ProcessStatefulCharacterHits();
+
+            KinematicCharacterUtilities.Update_MovingPlatformDetection(
+                ref baseContext,
+                ref characterBody);
+
+            KinematicCharacterUtilities.Update_ParentMomentum(
+                ref baseContext,
+                ref characterBody,
+                CharacterDataAccess.LocalTransform.ValueRO.Position);
+
+            KinematicCharacterUtilities.Update_ProcessStatefulCharacterHits(
+                CharacterDataAccess.CharacterHitsBuffer,
+                CharacterDataAccess.StatefulHitsBuffer);
         }
 
-        private void HandleVelocityControl(ref FirstPersonCharacterUpdateContext context,
+        void HandleVelocityControl(ref FirstPersonCharacterUpdateContext context,
             ref KinematicCharacterUpdateContext baseContext)
         {
             float deltaTime = baseContext.Time.DeltaTime;
-            ref KinematicCharacterBody characterBody = ref CharacterAspect.CharacterBody.ValueRW;
+            ref KinematicCharacterBody characterBody = ref CharacterDataAccess.CharacterBody.ValueRW;
             ref FirstPersonCharacterComponent characterComponent = ref CharacterComponent.ValueRW;
             ref FirstPersonCharacterControl characterControl = ref CharacterControl.ValueRW;
 
@@ -119,8 +174,16 @@ namespace OnlineFPS
 
                     // Cancel air acceleration from input if we would hit a non-grounded surface (prevents air-climbing slopes at high air accelerations)
                     if (characterComponent.PreventAirAccelerationAgainstUngroundedHits &&
-                        CharacterAspect.MovementWouldHitNonGroundedObstruction(in this, ref context, ref baseContext,
-                            characterBody.RelativeVelocity * deltaTime, out ColliderCastHit hit))
+                        KinematicCharacterUtilities.MovementWouldHitNonGroundedObstruction(
+                            in this,
+                            ref context,
+                            ref baseContext,
+                            CharacterDataAccess.CharacterProperties.ValueRO,
+                            CharacterDataAccess.LocalTransform.ValueRO,
+                            CharacterDataAccess.CharacterEntity,
+                            CharacterDataAccess.PhysicsCollider.ValueRO,
+                            characterBody.RelativeVelocity * deltaTime,
+                            out ColliderCastHit hit))
                     {
                         characterBody.RelativeVelocity = tmpVelocity;
                     }
@@ -139,9 +202,9 @@ namespace OnlineFPS
         public void VariableUpdate(ref FirstPersonCharacterUpdateContext context,
             ref KinematicCharacterUpdateContext baseContext)
         {
-            ref KinematicCharacterBody characterBody = ref CharacterAspect.CharacterBody.ValueRW;
+            ref KinematicCharacterBody characterBody = ref CharacterDataAccess.CharacterBody.ValueRW;
             ref FirstPersonCharacterComponent characterComponent = ref CharacterComponent.ValueRW;
-            ref quaternion characterRotation = ref CharacterAspect.LocalTransform.ValueRW.Rotation;
+            ref quaternion characterRotation = ref CharacterDataAccess.LocalTransform.ValueRW.Rotation;
             ref FirstPersonCharacterControl characterControl = ref CharacterControl.ValueRW;
             ActiveWeapon activeWeapon = ActiveWeapon.ValueRO;
 
@@ -184,9 +247,11 @@ namespace OnlineFPS
             ref FirstPersonCharacterUpdateContext context,
             ref KinematicCharacterUpdateContext baseContext)
         {
-            ref KinematicCharacterBody characterBody = ref CharacterAspect.CharacterBody.ValueRW;
+            ref KinematicCharacterBody characterBody = ref CharacterDataAccess.CharacterBody.ValueRW;
 
-            CharacterAspect.Default_UpdateGroundingUp(ref characterBody);
+            KinematicCharacterUtilities.Default_UpdateGroundingUp(
+                ref characterBody,
+                CharacterDataAccess.LocalTransform.ValueRO.Rotation);
         }
 
         public bool CanCollideWithHit(
@@ -205,10 +270,14 @@ namespace OnlineFPS
         {
             FirstPersonCharacterComponent characterComponent = CharacterComponent.ValueRO;
 
-            return CharacterAspect.Default_IsGroundedOnHit(
+            return KinematicCharacterUtilities.Default_IsGroundedOnHit(
                 in this,
                 ref context,
                 ref baseContext,
+                CharacterDataAccess.CharacterEntity,
+                CharacterDataAccess.PhysicsCollider.ValueRO,
+                CharacterDataAccess.CharacterBody.ValueRO,
+                CharacterDataAccess.CharacterProperties.ValueRO,
                 in hit,
                 in characterComponent.StepAndSlopeHandling,
                 groundingEvaluationType);
@@ -223,16 +292,21 @@ namespace OnlineFPS
             float3 originalVelocityDirection,
             float hitDistance)
         {
-            ref KinematicCharacterBody characterBody = ref CharacterAspect.CharacterBody.ValueRW;
-            ref float3 characterPosition = ref CharacterAspect.LocalTransform.ValueRW.Position;
+            ref KinematicCharacterBody characterBody = ref CharacterDataAccess.CharacterBody.ValueRW;
+            ref float3 characterPosition = ref CharacterDataAccess.LocalTransform.ValueRW.Position;
             FirstPersonCharacterComponent characterComponent = CharacterComponent.ValueRO;
 
-            CharacterAspect.Default_OnMovementHit(
+            KinematicCharacterUtilities.Default_OnMovementHit(
                 in this,
                 ref context,
                 ref baseContext,
                 ref characterBody,
+                CharacterDataAccess.CharacterEntity,
+                CharacterDataAccess.CharacterProperties.ValueRO,
+                CharacterDataAccess.PhysicsCollider.ValueRO,
+                CharacterDataAccess.LocalTransform.ValueRO,
                 ref characterPosition,
+                CharacterDataAccess.VelocityProjectionHits,
                 ref hit,
                 ref remainingMovementDirection,
                 ref remainingMovementLength,
@@ -263,15 +337,17 @@ namespace OnlineFPS
         {
             FirstPersonCharacterComponent characterComponent = CharacterComponent.ValueRO;
 
-            CharacterAspect.Default_ProjectVelocityOnHits(
+            KinematicCharacterUtilities.Default_ProjectVelocityOnHits(
                 ref velocity,
                 ref characterIsGrounded,
                 ref characterGroundHit,
                 in velocityProjectionHits,
                 originalVelocityDirection,
-                characterComponent.StepAndSlopeHandling.ConstrainVelocityToGroundPlane);
+                characterComponent.StepAndSlopeHandling.ConstrainVelocityToGroundPlane,
+                in CharacterDataAccess.CharacterBody.ValueRO);
         }
 
         #endregion
     }
 }
+

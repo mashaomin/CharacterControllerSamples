@@ -1,28 +1,14 @@
 using Unity.Burst;
-using Unity.Collections;
 using Unity.Entities;
-using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Physics;
 using Unity.Physics.Systems;
-using Unity.Physics.Extensions;
 using Unity.Transforms;
-using Unity.CharacterController;
 
 [UpdateInGroup(typeof(BeforePhysicsSystemGroup))]
 [BurstCompile]
 public partial struct TestMovingPlatformSystem : ISystem
 {
-    [BurstCompile]
-    public void OnCreate(ref SystemState state)
-    {
-    }
-
-    [BurstCompile]
-    public void OnDestroy(ref SystemState state)
-    {
-    }
-
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {

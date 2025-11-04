@@ -1,10 +1,8 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Entities.Content;
-using Unity.Entities.Serialization;
 using Unity.Logging;
 using Unity.NetCode;
 using Unity.Networking.Transport;
@@ -18,15 +16,15 @@ namespace OnlineFPS
         public Action OnAllDisconnected;
         public Action OnAllDestroyed;
 
-        private World LocalWorld = null;
-        private World ServerWorld = null;
-        private World ClientWorld = null;
-        private List<World> ThinClientWorlds = new List<World>();
-        private World MainWorld = null;
-        private List<World> GameWorlds = new List<World>();
+        World LocalWorld = null;
+        World ServerWorld = null;
+        World ClientWorld = null;
+        List<World> ThinClientWorlds = new List<World>();
+        World MainWorld = null;
+        List<World> GameWorlds = new List<World>();
 
-        private bool _awaitingDisconnectAll;
-        private int _worldsWithConnections;
+        bool m_AwaitingDisconnectAll;
+        int m_WorldsWithConnections;
 
         public static GameSession CreateLocalSession(string playerName, bool isGame)
         {
@@ -86,7 +84,7 @@ namespace OnlineFPS
 
         public void DisconnectAll()
         {
-            _awaitingDisconnectAll = true;
+            m_AwaitingDisconnectAll = true;
 
             int worldsCount = GameWorlds.Count;
             for (int i = worldsCount - 1; i >= 0; i--)
@@ -157,10 +155,10 @@ namespace OnlineFPS
 
         public void Update()
         {
-            if (_awaitingDisconnectAll && _worldsWithConnections <= 0)
+            if (m_AwaitingDisconnectAll && m_WorldsWithConnections <= 0)
             {
                 OnAllDisconnected?.Invoke();
-                _awaitingDisconnectAll = false;
+                m_AwaitingDisconnectAll = false;
             }
         }
 
@@ -190,7 +188,7 @@ namespace OnlineFPS
 
         private void CalculateWorldsWithConnections()
         {
-            _worldsWithConnections = 0;
+            m_WorldsWithConnections = 0;
             int worldsCount = GameWorlds.Count;
             for (int i = worldsCount - 1; i >= 0; i--)
             {
@@ -201,7 +199,7 @@ namespace OnlineFPS
                         .Build(tmpWorld.EntityManager);
                     if (netIDQuery.CalculateEntityCount() > 0)
                     {
-                        _worldsWithConnections++;
+                        m_WorldsWithConnections++;
                     }
                 }
             }
@@ -273,7 +271,7 @@ namespace OnlineFPS
             }
         }
 
-        private bool CreateThinClientWorld(string ip, ushort port, int thinClientId, out World world)
+        bool CreateThinClientWorld(string ip, ushort port, int thinClientId, out World world)
         {
             if (GetJoinNetworkEndpoint(ip, port, out NetworkEndpoint endpoint))
             {
@@ -299,7 +297,7 @@ namespace OnlineFPS
             }
         }
 
-        private bool GetJoinNetworkEndpoint(string ip, ushort port, out NetworkEndpoint endpoint)
+        bool GetJoinNetworkEndpoint(string ip, ushort port, out NetworkEndpoint endpoint)
         {
             endpoint = default;
             if (NetworkEndpoint.TryParse(ip, port, out endpoint))
@@ -314,7 +312,7 @@ namespace OnlineFPS
             return false;
         }
 
-        private void GetServerNetworkEndpoint(ushort port, out NetworkEndpoint endpoint)
+        void GetServerNetworkEndpoint(ushort port, out NetworkEndpoint endpoint)
         {
             endpoint = NetworkEndpoint.AnyIpv4;
             endpoint.Port = port;

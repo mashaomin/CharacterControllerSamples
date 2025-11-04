@@ -1,13 +1,8 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
-using Unity.Entities.Serialization;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
 #if UNITY_EDITOR
 using UnityEditor;
-using UnityEditor.Build.Content;
 using UnityEditor.UIElements;
 #endif
 

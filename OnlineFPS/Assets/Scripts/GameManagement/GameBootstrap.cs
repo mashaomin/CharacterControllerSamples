@@ -1,12 +1,5 @@
-using System.Collections;
-using System.Collections.Generic;
-using Unity.Entities;
-using Unity.Logging;
 using Unity.NetCode;
-using Unity.Networking.Transport;
 using UnityEngine;
-using UnityEngine.SceneManagement;
-
 
 namespace OnlineFPS
 {

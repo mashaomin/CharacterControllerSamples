@@ -1,7 +1,7 @@
 
 # Tutorial - Character Hits
 
-We will now look at how we can iterate on character hits that happened during the frame. You can think of these as the character's "collision events". 
+We will now look at how we can iterate on character hits that happened during the frame. You can think of these as the character's "collision events".
 
 We will create a new system that updates after the `KinematicCharacterPhysicsUpdateGroup`, and iterates on all `DynamicBuffer<KinematicCharacterHit>`. During the character update, all hits that have been detected are added to this buffer. Therefore we must iterate on it *after* the entire character update is finished if we want all detected hits to be present in the buffer.
 
@@ -30,7 +30,7 @@ public partial class CharacterHitsDetectionSystem : SystemBase
                 }
             }
         }
-        
+
         // Iterate on stateful hits
         foreach (var statefulHitsBuffer in SystemAPI.Query<DynamicBuffer<StatefulKinematicCharacterHit>>())
         {
@@ -53,4 +53,4 @@ public partial class CharacterHitsDetectionSystem : SystemBase
 
 This system demonstrates how to iterate over those character hits. In this example, the system will print a message in the console whenever the character detected an ungrounded hit, and every time we have entered any new hit.
 
-Note: if you don't want to use the stateful hits and don't want to pay any processing cost for them, you can remove the feature by removing the `CharacterAspect.Update_ProcessStatefulCharacterHits();` line in your `ThirdPersonCharacterAspect.PhysicsUpdate`
+Note: if you don't want to use the stateful hits and don't want to pay any processing cost for them, you can remove the feature by removing the `KinematicCharacterUtilities.Update_ProcessStatefulCharacterHits();` line in your `ThirdPersonCharacterProcessor.PhysicsUpdate`

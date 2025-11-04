@@ -1,33 +1,30 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.Rendering;
 using System;
 using UnityEngine.InputSystem;
 
 public struct FramerateCalculator
 {
-    private int _framesCount;
-    private float _framesDeltaSum;
-    private float _minDeltaTimeForAvg;
-    private float _maxDeltaTimeForAvg;
-    private string[] _framerateStrings;
+    int m_FramesCount;
+    float m_FramesDeltaSum;
+    float m_MinDeltaTimeForAvg;
+    float m_MaxDeltaTimeForAvg;
+    string[] m_FramerateStrings;
 
     public void Initialize()
     {
-        _minDeltaTimeForAvg = Mathf.Infinity;
-        _maxDeltaTimeForAvg = Mathf.NegativeInfinity;
-        _framerateStrings = new string[1001];
-        for (int i = 0; i < _framerateStrings.Length; i++)
+        m_MinDeltaTimeForAvg = Mathf.Infinity;
+        m_MaxDeltaTimeForAvg = Mathf.NegativeInfinity;
+        m_FramerateStrings = new string[1001];
+        for (int i = 0; i < m_FramerateStrings.Length; i++)
         {
-            if (i >= _framerateStrings.Length - 1)
+            if (i >= m_FramerateStrings.Length - 1)
             {
-                _framerateStrings[i] = i.ToString() + "+" + " (<" + (1000f / (float)i).ToString("F") + "ms)";
+                m_FramerateStrings[i] = i + "+" + " (<" + (1000f / i).ToString("F") + "ms)";
             }
             else
             {
-                _framerateStrings[i] = i.ToString() + " (" + (1000f / (float)i).ToString("F") + "ms)";
+                m_FramerateStrings[i] = i + " (" + (1000f / i).ToString("F") + "ms)";
             }
         }
     }
@@ -35,43 +32,43 @@ public struct FramerateCalculator
     public void Update()
     {
         // Regular frames
-        _framesCount++;
-        _framesDeltaSum += Time.deltaTime;
+        m_FramesCount++;
+        m_FramesDeltaSum += Time.deltaTime;
 
         // Max and min
-        if (Time.deltaTime < _minDeltaTimeForAvg)
+        if (Time.deltaTime < m_MinDeltaTimeForAvg)
         {
-            _minDeltaTimeForAvg = Time.deltaTime;
+            m_MinDeltaTimeForAvg = Time.deltaTime;
         }
 
-        if (Time.deltaTime > _maxDeltaTimeForAvg)
+        if (Time.deltaTime > m_MaxDeltaTimeForAvg)
         {
-            _maxDeltaTimeForAvg = Time.deltaTime;
+            m_MaxDeltaTimeForAvg = Time.deltaTime;
         }
     }
 
-    private string GetNumberString(int fps)
+    string GetNumberString(int fps)
     {
-        if (fps < _framerateStrings.Length - 1 && fps >= 0)
+        if (fps < m_FramerateStrings.Length - 1 && fps >= 0)
         {
-            return _framerateStrings[fps];
+            return m_FramerateStrings[fps];
         }
         else
         {
-            return _framerateStrings[_framerateStrings.Length - 1];
+            return m_FramerateStrings[m_FramerateStrings.Length - 1];
         }
     }
 
     public void PollFramerate(out string avg, out string worst, out string best)
     {
-        avg = GetNumberString(Mathf.RoundToInt(1f / (_framesDeltaSum / _framesCount)));
-        worst = GetNumberString(Mathf.RoundToInt(1f / _maxDeltaTimeForAvg));
-        best = GetNumberString(Mathf.RoundToInt(1f / _minDeltaTimeForAvg));
+        avg = GetNumberString(Mathf.RoundToInt(1f / (m_FramesDeltaSum / m_FramesCount)));
+        worst = GetNumberString(Mathf.RoundToInt(1f / m_MaxDeltaTimeForAvg));
+        best = GetNumberString(Mathf.RoundToInt(1f / m_MinDeltaTimeForAvg));
 
-        _framesDeltaSum = 0f;
-        _framesCount = 0;
-        _minDeltaTimeForAvg = Mathf.Infinity;
-        _maxDeltaTimeForAvg = Mathf.NegativeInfinity;
+        m_FramesDeltaSum = 0f;
+        m_FramesCount = 0;
+        m_MinDeltaTimeForAvg = Mathf.Infinity;
+        m_MaxDeltaTimeForAvg = Mathf.NegativeInfinity;
     }
 }
 
@@ -84,13 +81,13 @@ public class FramerateMenuManager : MonoBehaviour
 
     [Header("Misc")] public float FPSPollRate = 1f;
 
-    private FramerateCalculator _framerateCalculator = default;
-    private float _lastTimePolledFPS = float.MinValue;
-    private bool _hasVSync = false;
+    FramerateCalculator m_FramerateCalculator = default;
+    float m_LastTimePolledFPS = float.MinValue;
+    bool m_HasVSync = false;
 
     void Start()
     {
-        _framerateCalculator.Initialize();
+        m_FramerateCalculator.Initialize();
         UpdateRenderSettings();
     }
 
@@ -104,25 +101,25 @@ public class FramerateMenuManager : MonoBehaviour
 
         if (Keyboard.current.f3Key.wasPressedThisFrame)
         {
-            _hasVSync = !_hasVSync;
+            m_HasVSync = !m_HasVSync;
             UpdateRenderSettings();
         }
 
         // FPS
-        _framerateCalculator.Update();
-        if (Time.time >= _lastTimePolledFPS + FPSPollRate)
+        m_FramerateCalculator.Update();
+        if (Time.time >= m_LastTimePolledFPS + FPSPollRate)
         {
-            _framerateCalculator.PollFramerate(out string avg, out string worst, out string best);
+            m_FramerateCalculator.PollFramerate(out string avg, out string worst, out string best);
             AvgFPS.text = avg;
             WorstFPS.text = worst;
             BestFPS.text = best;
 
-            _lastTimePolledFPS = Time.time;
+            m_LastTimePolledFPS = Time.time;
         }
     }
 
-    private void UpdateRenderSettings()
+    void UpdateRenderSettings()
     {
-        QualitySettings.vSyncCount = _hasVSync ? 1 : 0;
+        QualitySettings.vSyncCount = m_HasVSync ? 1 : 0;
     }
 }

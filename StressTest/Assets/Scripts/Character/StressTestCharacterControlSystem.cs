@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using Unity.Burst;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -8,6 +6,11 @@ using UnityEngine;
 [BurstCompile]
 public partial struct StressTestCharacterControlSystem : ISystem
 {
+    public void OnCreate(ref SystemState state)
+    {
+        state.RequireForUpdate<StressTestManagerSystem.Singleton>();
+    }
+
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {

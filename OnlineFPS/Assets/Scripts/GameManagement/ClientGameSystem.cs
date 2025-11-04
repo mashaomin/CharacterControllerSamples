@@ -1,17 +1,12 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using Unity.Burst;
 using Unity.CharacterController;
 using Unity.Collections;
 using Unity.Entities;
-using Unity.Logging;
-using Unity.Mathematics;
 using Unity.NetCode;
 using Unity.Networking.Transport;
 using Unity.Physics;
 using Unity.Physics.Extensions;
-using Unity.Scenes;
 using Unity.Transforms;
 using UnityEngine;
 
@@ -46,8 +41,8 @@ namespace OnlineFPS
             public bool HasSentJoinRequest;
         }
 
-        private EntityQuery _singletonQuery;
-        private EntityQuery _spectatorSpawnPointsQuery;
+        EntityQuery m_SingletonQuery;
+        EntityQuery m_SpectatorSpawnPointsQuery;
 
         [BurstCompile]
         public void OnCreate(ref SystemState state)
@@ -55,8 +50,8 @@ namespace OnlineFPS
             state.RequireForUpdate<GameResources>();
             state.RequireForUpdate<GameWorldSystem.Singleton>();
 
-            _singletonQuery = new EntityQueryBuilder(Allocator.Temp).WithAllRW<Singleton>().Build(state.EntityManager);
-            _spectatorSpawnPointsQuery = new EntityQueryBuilder(Allocator.Temp)
+            m_SingletonQuery = new EntityQueryBuilder(Allocator.Temp).WithAllRW<Singleton>().Build(state.EntityManager);
+            m_SpectatorSpawnPointsQuery = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<SpectatorSpawnPoint, LocalToWorld>().Build(state.EntityManager);
 
             // Auto-create singleton
@@ -75,7 +70,7 @@ namespace OnlineFPS
                 state.EntityManager.DestroyEntity(SystemAPI.GetSingletonEntity<DisableCharacterDynamicContacts>());
             }
 
-            ref Singleton singleton = ref _singletonQuery.GetSingletonRW<Singleton>().ValueRW;
+            ref Singleton singleton = ref m_SingletonQuery.GetSingletonRW<Singleton>().ValueRW;
             GameResources gameResources = SystemAPI.GetSingleton<GameResources>();
 
             HandleConnect(ref state, ref singleton);
@@ -90,7 +85,7 @@ namespace OnlineFPS
             HandleDisconnect(ref state, ref singleton, ref gameWorldSystemSingleton, gameResources);
         }
 
-        private void HandleConnect(ref SystemState state, ref Singleton singleton)
+        void HandleConnect(ref SystemState state, ref Singleton singleton)
         {
             if (!singleton.HasHandledConnect &&
                 SystemAPI.TryGetSingletonRW(out RefRW<NetworkStreamDriver> netStreamDriver))
@@ -100,7 +95,7 @@ namespace OnlineFPS
             }
         }
 
-        private void HandleSendJoinRequest(ref SystemState state, ref Singleton singleton,
+        void HandleSendJoinRequest(ref SystemState state, ref Singleton singleton,
             ref GameWorldSystem.Singleton gameWorldSystemSingleto)
         {
             if (!singleton.HasSentJoinRequest && SystemAPI.HasSingleton<NetworkId>())
@@ -141,7 +136,7 @@ namespace OnlineFPS
             }
         }
 
-        private void HandleWaitForJoinConfirmation(ref SystemState state, ref Singleton singleton,
+        void HandleWaitForJoinConfirmation(ref SystemState state, ref Singleton singleton,
             ref GameWorldSystem.Singleton gameWorldSystemSingleton, GameResources gameResources)
         {
             EntityCommandBuffer ecb = SystemAPI.GetSingletonRW<EndSimulationEntityCommandBufferSystem.Singleton>()
@@ -167,7 +162,7 @@ namespace OnlineFPS
                     {
                         LocalToWorld spawnPoint = default;
                         NativeArray<LocalToWorld> spectatorSpawnPoints =
-                            _spectatorSpawnPointsQuery.ToComponentDataArray<LocalToWorld>(Allocator.Temp);
+                            m_SpectatorSpawnPointsQuery.ToComponentDataArray<LocalToWorld>(Allocator.Temp);
                         if (spectatorSpawnPoints.Length > 0)
                         {
                             spawnPoint =
@@ -189,7 +184,7 @@ namespace OnlineFPS
             }
         }
 
-        private void HandleCharacterSetup(ref SystemState state, ref GameWorldSystem.Singleton gameWorldSystemSingleton)
+        void HandleCharacterSetup(ref SystemState state, ref GameWorldSystem.Singleton gameWorldSystemSingleton)
         {
             if (SystemAPI.HasSingleton<NetworkId>())
             {
@@ -239,7 +234,7 @@ namespace OnlineFPS
             }
         }
 
-        private void HandleRespawnScreen(ref SystemState state, ref Singleton clientSingleton,
+        void HandleRespawnScreen(ref SystemState state, ref Singleton clientSingleton,
             ref GameWorldSystem.Singleton gameWorldSystemSingleton)
         {
             EntityCommandBuffer ecb = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>()
@@ -271,7 +266,7 @@ namespace OnlineFPS
             }
         }
 
-        private void HandleDisconnect(ref SystemState state, ref Singleton singleton,
+        void HandleDisconnect(ref SystemState state, ref Singleton singleton,
             ref GameWorldSystem.Singleton gameWorldSystemSingleton, GameResources gameResources)
         {
             // Check for connection timeout

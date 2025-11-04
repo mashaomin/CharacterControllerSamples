@@ -1,7 +1,5 @@
 using Unity.Entities;
-using Unity.Mathematics;
 using UnityEngine;
-using Unity.Physics;
 using Unity.Physics.Authoring;
 using System.Collections.Generic;
 

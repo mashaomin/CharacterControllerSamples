@@ -2,10 +2,8 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Core;
 using Unity.Entities;
-using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Physics;
-using Unity.Physics.Systems;
 using Unity.Transforms;
 using Unity.CharacterController;
 using UnityEngine;
@@ -23,46 +21,46 @@ public partial struct OrbitCameraSystem : ISystem
 
         public ColliderCastHit ClosestHit;
 
-        private float _closestHitFraction;
-        private float3 _cameraDirection; 
-        private Entity _followedCharacter;
-        private DynamicBuffer<OrbitCameraIgnoredEntityBufferElement> _ignoredEntitiesBuffer;
+        float m_ClosestHitFraction;
+        float3 m_CameraDirection; 
+        Entity m_FollowedCharacter;
+        DynamicBuffer<OrbitCameraIgnoredEntityBufferElement> m_IgnoredEntitiesBuffer;
 
         public CameraObstructionHitsCollector(Entity followedCharacter, DynamicBuffer<OrbitCameraIgnoredEntityBufferElement> ignoredEntitiesBuffer, float3 cameraDirection)
         {
             NumHits = 0;
             ClosestHit = default;
 
-            _closestHitFraction = float.MaxValue;
-            _cameraDirection = cameraDirection;
-            _followedCharacter = followedCharacter;
-            _ignoredEntitiesBuffer = ignoredEntitiesBuffer;
+            m_ClosestHitFraction = float.MaxValue;
+            m_CameraDirection = cameraDirection;
+            m_FollowedCharacter = followedCharacter;
+            m_IgnoredEntitiesBuffer = ignoredEntitiesBuffer;
         }
 
         public bool AddHit(ColliderCastHit hit)
         {
-            if (_followedCharacter == hit.Entity)
+            if (m_FollowedCharacter == hit.Entity)
             {
                 return false;
             }
         
-            if (math.dot(hit.SurfaceNormal, _cameraDirection) < 0f || !PhysicsUtilities.IsCollidable(hit.Material))
+            if (math.dot(hit.SurfaceNormal, m_CameraDirection) < 0f || !PhysicsUtilities.IsCollidable(hit.Material))
             {
                 return false;
             }
 
-            for (int i = 0; i < _ignoredEntitiesBuffer.Length; i++)
+            for (int i = 0; i < m_IgnoredEntitiesBuffer.Length; i++)
             {
-                if (_ignoredEntitiesBuffer[i].Entity == hit.Entity)
+                if (m_IgnoredEntitiesBuffer[i].Entity == hit.Entity)
                 {
                     return false;
                 }
             }
 
             // Process valid hit
-            if (hit.Fraction < _closestHitFraction)
+            if (hit.Fraction < m_ClosestHitFraction)
             {
-                _closestHitFraction = hit.Fraction;
+                m_ClosestHitFraction = hit.Fraction;
                 ClosestHit = hit;
             }
             NumHits++;
@@ -75,10 +73,6 @@ public partial struct OrbitCameraSystem : ISystem
     {
         state.RequireForUpdate<PhysicsWorldSingleton>();
         state.RequireForUpdate(SystemAPI.QueryBuilder().WithAll<OrbitCamera, OrbitCameraControl>().Build());
-    }
-
-    public void OnDestroy(ref SystemState state)
-    {
     }
 
     public void OnUpdate(ref SystemState state)

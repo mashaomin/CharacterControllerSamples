@@ -1,16 +1,7 @@
 using System;
-using System.Collections.Generic;
-using System.Runtime.CompilerServices;
-using Unity.Burst;
-using Unity.Collections;
 using Unity.Entities;
-using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Physics;
-using Unity.Physics.Authoring;
-using Unity.Physics.Extensions;
-using Unity.Physics.Systems;
-using Unity.Transforms;
 using Unity.CharacterController;
 using UnityEngine;
 
@@ -20,58 +11,129 @@ public struct StressTestCharacterUpdateContext
     // The data you add here will be accessible in your character updates and all of your character "callbacks".
     public KinematicCharacterStateSave stateSave;
 
-    public void OnSystemCreate(ref SystemState state)
-    { }
+    public void OnSystemCreate(ref SystemState state) { }
 
-    public void OnSystemUpdate(ref SystemState state)
-    { }
+    public void OnSystemUpdate(ref SystemState state) { }
 }
 
-public readonly partial struct StressTestCharacterAspect : IAspect, IKinematicCharacterProcessor<StressTestCharacterUpdateContext>
+public struct StressTestCharacterProcessor : IKinematicCharacterProcessor<StressTestCharacterUpdateContext>
 {
-    public readonly KinematicCharacterAspect CharacterAspect;
-    public readonly RefRW<StressTestCharacterComponent> CharacterComponent;
-    public readonly RefRW<StressTestCharacterControl> CharacterControl;
+    public KinematicCharacterDataAccess CharacterDataAccess;
+    public RefRW<StressTestCharacterComponent> CharacterComponent;
+    public RefRW<StressTestCharacterControl> CharacterControl;
 
     public void PhysicsUpdate(ref StressTestCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext)
     {
         ref StressTestCharacterComponent characterComponent = ref CharacterComponent.ValueRW;
-        ref KinematicCharacterBody characterBody = ref CharacterAspect.CharacterBody.ValueRW;
-        ref float3 characterPosition = ref CharacterAspect.LocalTransform.ValueRW.Position;
+        ref KinematicCharacterBody characterBody = ref CharacterDataAccess.CharacterBody.ValueRW;
+        ref float3 characterPosition = ref CharacterDataAccess.LocalTransform.ValueRW.Position;
 
         // First phase of default character update
-        CharacterAspect.Update_Initialize(in this, ref context, ref baseContext, ref characterBody, baseContext.Time.DeltaTime);
-        CharacterAspect.Update_ParentMovement(in this, ref context, ref baseContext, ref characterBody, ref characterPosition, characterBody.WasGroundedBeforeCharacterUpdate);
-        CharacterAspect.Update_Grounding(in this, ref context, ref baseContext, ref characterBody, ref characterPosition);
+        KinematicCharacterUtilities.Update_Initialize(
+            in this,
+            ref context,
+            ref baseContext,
+            ref characterBody,
+            CharacterDataAccess.CharacterHitsBuffer,
+            CharacterDataAccess.DeferredImpulsesBuffer,
+            CharacterDataAccess.VelocityProjectionHits,
+            baseContext.Time.DeltaTime);
+
+        KinematicCharacterUtilities.Update_ParentMovement(
+            in this,
+            ref context,
+            ref baseContext,
+            CharacterDataAccess.CharacterEntity,
+            ref characterBody,
+            CharacterDataAccess.CharacterProperties.ValueRO,
+            CharacterDataAccess.PhysicsCollider.ValueRO,
+            CharacterDataAccess.LocalTransform.ValueRO,
+            ref characterPosition,
+            characterBody.WasGroundedBeforeCharacterUpdate);
+
+        KinematicCharacterUtilities.Update_Grounding(
+            in this,
+            ref context,
+            ref baseContext,
+            ref characterBody,
+            CharacterDataAccess.CharacterEntity,
+            CharacterDataAccess.CharacterProperties.ValueRO,
+            CharacterDataAccess.PhysicsCollider.ValueRO,
+            CharacterDataAccess.LocalTransform.ValueRO,
+            CharacterDataAccess.VelocityProjectionHits,
+            CharacterDataAccess.CharacterHitsBuffer,
+            ref characterPosition);
         
         // Update desired character velocity after grounding was detected, but before doing additional processing that depends on velocity
         HandleVelocityControl(ref context, ref baseContext);
         
         if (characterComponent.UseSaveRestoreState)
         {
-            context.stateSave.Save(CharacterAspect);
-            CharacterAspect.LocalTransform.ValueRW.Position += math.up();
-            context.stateSave.Restore(CharacterAspect);
+            context.stateSave.Save(CharacterDataAccess);
+            CharacterDataAccess.LocalTransform.ValueRW.Position += math.up();
+            context.stateSave.Restore(CharacterDataAccess);
         }
 
         // Second phase of default character update
-        CharacterAspect.Update_PreventGroundingFromFutureSlopeChange(in this, ref context, ref baseContext, ref characterBody, in characterComponent.StepAndSlopeHandling);
-        CharacterAspect.Update_GroundPushing(in this, ref context, ref baseContext, characterComponent.Gravity);
-        CharacterAspect.Update_MovementAndDecollisions(in this, ref context, ref baseContext, ref characterBody, ref characterPosition);
-        CharacterAspect.Update_MovingPlatformDetection(ref baseContext, ref characterBody); 
-        CharacterAspect.Update_ParentMomentum(ref baseContext, ref characterBody);
-        CharacterAspect.Update_ProcessStatefulCharacterHits();
+        KinematicCharacterUtilities.Update_PreventGroundingFromFutureSlopeChange(
+            in this,
+            ref context,
+            ref baseContext,
+            CharacterDataAccess.CharacterEntity,
+            ref characterBody,
+            CharacterDataAccess.CharacterProperties.ValueRO,
+            CharacterDataAccess.PhysicsCollider.ValueRO,
+            in characterComponent.StepAndSlopeHandling);
+
+        KinematicCharacterUtilities.Update_GroundPushing(
+            in this,
+            ref context,
+            ref baseContext,
+            ref characterBody,
+            CharacterDataAccess.CharacterProperties.ValueRO,
+            CharacterDataAccess.LocalTransform.ValueRO,
+            CharacterDataAccess.DeferredImpulsesBuffer,
+            characterComponent.Gravity);
+
+        KinematicCharacterUtilities.Update_MovementAndDecollisions(
+            in this,
+            ref context,
+            ref baseContext,
+            CharacterDataAccess.CharacterEntity,
+            ref characterBody,
+            CharacterDataAccess.CharacterProperties.ValueRO,
+            CharacterDataAccess.PhysicsCollider.ValueRO,
+            CharacterDataAccess.LocalTransform.ValueRO,
+            CharacterDataAccess.VelocityProjectionHits,
+            CharacterDataAccess.CharacterHitsBuffer,
+            CharacterDataAccess.DeferredImpulsesBuffer,
+            ref characterPosition);
+
+        KinematicCharacterUtilities.Update_MovingPlatformDetection(
+            ref baseContext,
+            ref characterBody);
+
+        KinematicCharacterUtilities.Update_ParentMomentum(
+            ref baseContext,
+            ref characterBody,
+            CharacterDataAccess.LocalTransform.ValueRO.Position);
+
+        KinematicCharacterUtilities.Update_ProcessStatefulCharacterHits(
+            CharacterDataAccess.CharacterHitsBuffer,
+            CharacterDataAccess.StatefulHitsBuffer);
 
         if (characterComponent.UseStatefulHits)
         {
-            CharacterAspect.Update_ProcessStatefulCharacterHits();
+            KinematicCharacterUtilities.Update_ProcessStatefulCharacterHits(
+                CharacterDataAccess.CharacterHitsBuffer,
+                CharacterDataAccess.StatefulHitsBuffer);
         }
     }
 
-    private void HandleVelocityControl(ref StressTestCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext)
+    void HandleVelocityControl(ref StressTestCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext)
     {
         float deltaTime = baseContext.Time.DeltaTime;
-        ref KinematicCharacterBody characterBody = ref CharacterAspect.CharacterBody.ValueRW;
+        ref KinematicCharacterBody characterBody = ref CharacterDataAccess.CharacterBody.ValueRW;
         ref StressTestCharacterComponent characterComponent = ref CharacterComponent.ValueRW;
         ref StressTestCharacterControl characterControl = ref CharacterControl.ValueRW;
 
@@ -104,7 +166,17 @@ public readonly partial struct StressTestCharacterAspect : IAspect, IKinematicCh
                 CharacterControlUtilities.StandardAirMove(ref characterBody.RelativeVelocity, airAcceleration, characterComponent.AirMaxSpeed, characterBody.GroundingUp, deltaTime, false);
 
                 // Cancel air acceleration from input if we would hit a non-grounded surface (prevents air-climbing slopes at high air accelerations)
-                if (characterComponent.PreventAirAccelerationAgainstUngroundedHits && CharacterAspect.MovementWouldHitNonGroundedObstruction(in this, ref context, ref baseContext, characterBody.RelativeVelocity * deltaTime, out ColliderCastHit hit))
+                if (characterComponent.PreventAirAccelerationAgainstUngroundedHits &&
+                    KinematicCharacterUtilities.MovementWouldHitNonGroundedObstruction(
+                        in this,
+                        ref context,
+                        ref baseContext,
+                        CharacterDataAccess.CharacterProperties.ValueRO,
+                        CharacterDataAccess.LocalTransform.ValueRO,
+                        CharacterDataAccess.CharacterEntity,
+                        CharacterDataAccess.PhysicsCollider.ValueRO,
+                        characterBody.RelativeVelocity * deltaTime,
+                        out ColliderCastHit hit))
                 {
                     characterBody.RelativeVelocity = tmpVelocity;
                 }
@@ -120,10 +192,10 @@ public readonly partial struct StressTestCharacterAspect : IAspect, IKinematicCh
 
     public void VariableUpdate(ref StressTestCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext)
     {
-        ref KinematicCharacterBody characterBody = ref CharacterAspect.CharacterBody.ValueRW;
+        ref KinematicCharacterBody characterBody = ref CharacterDataAccess.CharacterBody.ValueRW;
         ref StressTestCharacterComponent characterComponent = ref CharacterComponent.ValueRW;
         ref StressTestCharacterControl characterControl = ref CharacterControl.ValueRW;
-        ref quaternion characterRotation = ref CharacterAspect.LocalTransform.ValueRW.Rotation;
+        ref quaternion characterRotation = ref CharacterDataAccess.LocalTransform.ValueRW.Rotation;
 
         // Add rotation from parent body to the character rotation
         // (this is for allowing a rotating moving platform to rotate your character as well, and handle interpolation properly)
@@ -141,9 +213,11 @@ public readonly partial struct StressTestCharacterAspect : IAspect, IKinematicCh
         ref StressTestCharacterUpdateContext context,
         ref KinematicCharacterUpdateContext baseContext)
     {
-        ref KinematicCharacterBody characterBody = ref CharacterAspect.CharacterBody.ValueRW;
+        ref KinematicCharacterBody characterBody = ref CharacterDataAccess.CharacterBody.ValueRW;
         
-        CharacterAspect.Default_UpdateGroundingUp(ref characterBody);
+        KinematicCharacterUtilities.Default_UpdateGroundingUp(
+            ref characterBody,
+            CharacterDataAccess.LocalTransform.ValueRO.Rotation);
     }
     
     public bool CanCollideWithHit(
@@ -162,10 +236,14 @@ public readonly partial struct StressTestCharacterAspect : IAspect, IKinematicCh
     {
         StressTestCharacterComponent characterComponent = CharacterComponent.ValueRO;
         
-        return CharacterAspect.Default_IsGroundedOnHit(
+        return KinematicCharacterUtilities.Default_IsGroundedOnHit(
             in this,
             ref context,
             ref baseContext,
+            CharacterDataAccess.CharacterEntity,
+            CharacterDataAccess.PhysicsCollider.ValueRO,
+            CharacterDataAccess.CharacterBody.ValueRO,
+            CharacterDataAccess.CharacterProperties.ValueRO,
             in hit,
             in characterComponent.StepAndSlopeHandling,
             groundingEvaluationType);
@@ -180,16 +258,21 @@ public readonly partial struct StressTestCharacterAspect : IAspect, IKinematicCh
             float3 originalVelocityDirection,
             float hitDistance)
     {
-        ref KinematicCharacterBody characterBody = ref CharacterAspect.CharacterBody.ValueRW;
-        ref float3 characterPosition = ref CharacterAspect.LocalTransform.ValueRW.Position;
+        ref KinematicCharacterBody characterBody = ref CharacterDataAccess.CharacterBody.ValueRW;
+        ref float3 characterPosition = ref CharacterDataAccess.LocalTransform.ValueRW.Position;
         StressTestCharacterComponent characterComponent = CharacterComponent.ValueRO;
         
-        CharacterAspect.Default_OnMovementHit(
+        KinematicCharacterUtilities.Default_OnMovementHit(
             in this,
             ref context,
             ref baseContext,
             ref characterBody,
+            CharacterDataAccess.CharacterEntity,
+            CharacterDataAccess.CharacterProperties.ValueRO,
+            CharacterDataAccess.PhysicsCollider.ValueRO,
+            CharacterDataAccess.LocalTransform.ValueRO,
             ref characterPosition,
+            CharacterDataAccess.VelocityProjectionHits,
             ref hit,
             ref remainingMovementDirection,
             ref remainingMovementLength,
@@ -220,13 +303,15 @@ public readonly partial struct StressTestCharacterAspect : IAspect, IKinematicCh
     {
         StressTestCharacterComponent characterComponent = CharacterComponent.ValueRO;
         
-        CharacterAspect.Default_ProjectVelocityOnHits(
+        KinematicCharacterUtilities.Default_ProjectVelocityOnHits(
             ref velocity,
             ref characterIsGrounded,
             ref characterGroundHit,
             in velocityProjectionHits,
             originalVelocityDirection,
-            characterComponent.StepAndSlopeHandling.ConstrainVelocityToGroundPlane);
+            characterComponent.StepAndSlopeHandling.ConstrainVelocityToGroundPlane,
+            in CharacterDataAccess.CharacterBody.ValueRO);
     }
     #endregion
 }
+

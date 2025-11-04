@@ -1,9 +1,6 @@
 using Unity.Burst;
 using Unity.Burst.Intrinsics;
 using Unity.Entities;
-using Unity.Collections;
-using Unity.Jobs;
-using Unity.Mathematics;
 using Unity.Physics;
 using Unity.Transforms;
 using Unity.CharacterController;
@@ -12,31 +9,28 @@ using Unity.CharacterController;
 [BurstCompile]
 public partial struct StressTestCharacterPhysicsUpdateSystem : ISystem
 {
-    private EntityQuery _characterQuery;
-    private StressTestCharacterUpdateContext _context;
-    private KinematicCharacterUpdateContext _baseContext;
+    EntityQuery m_CharacterQuery;
+    StressTestCharacterUpdateContext m_Context;
+    KinematicCharacterUpdateContext m_BaseContext;
 
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
-        _characterQuery = KinematicCharacterUtilities.GetBaseCharacterQueryBuilder()
+        state.RequireForUpdate<StressTestManagerSystem.Singleton>();
+        m_CharacterQuery = KinematicCharacterUtilities.GetBaseCharacterQueryBuilder()
             .WithAll<
                 StressTestCharacterComponent,
                 StressTestCharacterControl>()
             .Build(ref state);
 
-        _context = new StressTestCharacterUpdateContext();
-        _context.OnSystemCreate(ref state);
-        _baseContext = new KinematicCharacterUpdateContext();
-        _baseContext.OnSystemCreate(ref state);
+        m_Context = new StressTestCharacterUpdateContext();
+        m_Context.OnSystemCreate(ref state);
+        m_BaseContext = new KinematicCharacterUpdateContext();
+        m_BaseContext.OnSystemCreate(ref state);
 
-        state.RequireForUpdate(_characterQuery);
+        state.RequireForUpdate(m_CharacterQuery);
         state.RequireForUpdate<PhysicsWorldSingleton>();
     }
-
-    [BurstCompile]
-    public void OnDestroy(ref SystemState state)
-    { }
 
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
@@ -45,14 +39,14 @@ public partial struct StressTestCharacterPhysicsUpdateSystem : ISystem
             return;
 
         bool multithreaded = SystemAPI.GetSingleton<StressTestManagerSystem.Singleton>().Multithreaded;
-        
-        _context.OnSystemUpdate(ref state);
-        _baseContext.OnSystemUpdate(ref state, SystemAPI.Time, SystemAPI.GetSingleton<PhysicsWorldSingleton>());
-        
+
+        m_Context.OnSystemUpdate(ref state);
+        m_BaseContext.OnSystemUpdate(ref state, SystemAPI.Time, SystemAPI.GetSingleton<PhysicsWorldSingleton>());
+
         StressTestCharacterPhysicsUpdateJob job = new StressTestCharacterPhysicsUpdateJob
         {
-            Context = _context,
-            BaseContext = _baseContext,
+            Context = m_Context,
+            BaseContext = m_BaseContext,
         };
         if (multithreaded)
         {
@@ -69,10 +63,38 @@ public partial struct StressTestCharacterPhysicsUpdateSystem : ISystem
     {
         public StressTestCharacterUpdateContext Context;
         public KinematicCharacterUpdateContext BaseContext;
-    
-        void Execute(StressTestCharacterAspect characterAspect)
+
+        void Execute(
+            Entity entity,
+            RefRW<LocalTransform> localTransform,
+            RefRW<KinematicCharacterProperties> characterProperties,
+            RefRW<KinematicCharacterBody> characterBody,
+            RefRW<PhysicsCollider> physicsCollider,
+            RefRW<StressTestCharacterComponent> characterComponent,
+            RefRW<StressTestCharacterControl> characterControl,
+            DynamicBuffer<KinematicCharacterHit> characterHitsBuffer,
+            DynamicBuffer<StatefulKinematicCharacterHit> statefulHitsBuffer,
+            DynamicBuffer<KinematicCharacterDeferredImpulse> deferredImpulsesBuffer,
+            DynamicBuffer<KinematicVelocityProjectionHit> velocityProjectionHits)
         {
-            characterAspect.PhysicsUpdate(ref Context, ref BaseContext);
+            var characterProcessor = new StressTestCharacterProcessor()
+            {
+                CharacterDataAccess = new KinematicCharacterDataAccess(
+                    entity,
+                    localTransform,
+                    characterProperties,
+                    characterBody,
+                    physicsCollider,
+                    characterHitsBuffer,
+                    statefulHitsBuffer,
+                    deferredImpulsesBuffer,
+                    velocityProjectionHits
+                ),
+                CharacterComponent = characterComponent,
+                CharacterControl = characterControl
+            };
+
+            characterProcessor.PhysicsUpdate(ref Context, ref BaseContext);
         }
 
         public bool OnChunkBegin(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
@@ -81,8 +103,7 @@ public partial struct StressTestCharacterPhysicsUpdateSystem : ISystem
             return true;
         }
 
-        public void OnChunkEnd(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask, bool chunkWasExecuted)
-        { }
+        public void OnChunkEnd(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask, bool chunkWasExecuted) { }
     }
 }
 
@@ -92,30 +113,26 @@ public partial struct StressTestCharacterPhysicsUpdateSystem : ISystem
 [BurstCompile]
 public partial struct StressTestCharacterVariableUpdateSystem : ISystem
 {
-    private EntityQuery _characterQuery;
-    private StressTestCharacterUpdateContext _context;
-    private KinematicCharacterUpdateContext _baseContext;
+    EntityQuery m_CharacterQuery;
+    StressTestCharacterUpdateContext m_Context;
+    KinematicCharacterUpdateContext m_BaseContext;
 
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
-        _characterQuery = KinematicCharacterUtilities.GetBaseCharacterQueryBuilder()
+        m_CharacterQuery = KinematicCharacterUtilities.GetBaseCharacterQueryBuilder()
             .WithAll<
                 StressTestCharacterComponent,
                 StressTestCharacterControl>()
             .Build(ref state);
 
-        _context = new StressTestCharacterUpdateContext();
-        _context.OnSystemCreate(ref state);
-        _baseContext = new KinematicCharacterUpdateContext();
-        _baseContext.OnSystemCreate(ref state);
-        
-        state.RequireForUpdate(_characterQuery);
-    }
+        m_Context = new StressTestCharacterUpdateContext();
+        m_Context.OnSystemCreate(ref state);
+        m_BaseContext = new KinematicCharacterUpdateContext();
+        m_BaseContext.OnSystemCreate(ref state);
 
-    [BurstCompile]
-    public void OnDestroy(ref SystemState state)
-    { }
+        state.RequireForUpdate(m_CharacterQuery);
+    }
 
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
@@ -124,14 +141,14 @@ public partial struct StressTestCharacterVariableUpdateSystem : ISystem
             return;
 
         bool multithreaded = SystemAPI.GetSingleton<StressTestManagerSystem.Singleton>().Multithreaded;
-        
-        _context.OnSystemUpdate(ref state);
-        _baseContext.OnSystemUpdate(ref state, SystemAPI.Time, SystemAPI.GetSingleton<PhysicsWorldSingleton>());
-        
+
+        m_Context.OnSystemUpdate(ref state);
+        m_BaseContext.OnSystemUpdate(ref state, SystemAPI.Time, SystemAPI.GetSingleton<PhysicsWorldSingleton>());
+
         StressTestCharacterVariableUpdateJob job = new StressTestCharacterVariableUpdateJob
         {
-            Context = _context,
-            BaseContext = _baseContext,
+            Context = m_Context,
+            BaseContext = m_BaseContext,
         };
         if (multithreaded)
         {
@@ -148,10 +165,38 @@ public partial struct StressTestCharacterVariableUpdateSystem : ISystem
     {
         public StressTestCharacterUpdateContext Context;
         public KinematicCharacterUpdateContext BaseContext;
-    
-        void Execute(StressTestCharacterAspect characterAspect)
+
+        void Execute(
+            Entity entity,
+            RefRW<LocalTransform> localTransform,
+            RefRW<KinematicCharacterProperties> characterProperties,
+            RefRW<KinematicCharacterBody> characterBody,
+            RefRW<PhysicsCollider> physicsCollider,
+            RefRW<StressTestCharacterComponent> characterComponent,
+            RefRW<StressTestCharacterControl> characterControl,
+            DynamicBuffer<KinematicCharacterHit> characterHitsBuffer,
+            DynamicBuffer<StatefulKinematicCharacterHit> statefulHitsBuffer,
+            DynamicBuffer<KinematicCharacterDeferredImpulse> deferredImpulsesBuffer,
+            DynamicBuffer<KinematicVelocityProjectionHit> velocityProjectionHits)
         {
-            characterAspect.VariableUpdate(ref Context, ref BaseContext);
+            var characterProcessor = new StressTestCharacterProcessor()
+            {
+                CharacterDataAccess = new KinematicCharacterDataAccess(
+                    entity,
+                    localTransform,
+                    characterProperties,
+                    characterBody,
+                    physicsCollider,
+                    characterHitsBuffer,
+                    statefulHitsBuffer,
+                    deferredImpulsesBuffer,
+                    velocityProjectionHits
+                ),
+                CharacterComponent = characterComponent,
+                CharacterControl = characterControl
+            };
+
+            characterProcessor.VariableUpdate(ref Context, ref BaseContext);
         }
 
         public bool OnChunkBegin(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
@@ -160,7 +205,6 @@ public partial struct StressTestCharacterVariableUpdateSystem : ISystem
             return true;
         }
 
-        public void OnChunkEnd(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask, bool chunkWasExecuted)
-        { }
+        public void OnChunkEnd(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask, bool chunkWasExecuted) { }
     }
 }

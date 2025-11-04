@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Collections.Generic;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -31,7 +30,5 @@ namespace OnlineFPS
     // Character interpolation must be Client-only, because it would prevent proper LocalToWorld updates on server otherwise
     [GhostComponentVariation(typeof(CharacterInterpolation))]
     [GhostComponent(PrefabType = GhostPrefabType.PredictedClient)]
-    public struct CharacterInterpolation_GhostVariant
-    {
-    }
+    public struct CharacterInterpolation_GhostVariant { }
 }

@@ -5,26 +5,26 @@ using Unity.CharacterController;
 
 public struct AirMoveState : IPlatformerCharacterState
 {
-    public void OnStateEnter(CharacterState previousState, ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterAspect aspect)
+    public void OnStateEnter(CharacterState previousState, ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterProcessor processor)
     {
-        ref PlatformerCharacterComponent character = ref aspect.Character.ValueRW;
+        ref PlatformerCharacterComponent character = ref processor.Character.ValueRW;
         
-        aspect.SetCapsuleGeometry(character.StandingGeometry.ToCapsuleGeometry());
+        processor.SetCapsuleGeometry(character.StandingGeometry.ToCapsuleGeometry());
     }
 
-    public void OnStateExit(CharacterState nextState, ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterAspect aspect)
+    public void OnStateExit(CharacterState nextState, ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterProcessor processor)
     { }
 
-    public void OnStatePhysicsUpdate(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterAspect aspect)
+    public void OnStatePhysicsUpdate(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterProcessor processor)
     {
         float deltaTime = baseContext.Time.DeltaTime;
         float elapsedTime = (float)baseContext.Time.ElapsedTime;
-        ref KinematicCharacterBody characterBody = ref aspect.CharacterAspect.CharacterBody.ValueRW;
-        ref PlatformerCharacterComponent character = ref aspect.Character.ValueRW;
-        ref PlatformerCharacterControl characterControl = ref aspect.CharacterControl.ValueRW;
-        CustomGravity customGravity = aspect.CustomGravity.ValueRO;
+        ref KinematicCharacterBody characterBody = ref processor.CharacterDataAccess.CharacterBody.ValueRW;
+        ref PlatformerCharacterComponent character = ref processor.Character.ValueRW;
+        ref PlatformerCharacterControl characterControl = ref processor.CharacterControl.ValueRW;
+        CustomGravity customGravity = processor.CustomGravity.ValueRO;
         
-        aspect.HandlePhysicsUpdatePhase1(ref context, ref baseContext, true, true);
+        processor.HandlePhysicsUpdatePhase1(ref context, ref baseContext, true, true);
 
         // Move
         float3 airAcceleration = characterControl.MoveVector * character.AirAcceleration;
@@ -34,7 +34,16 @@ public struct AirMoveState : IPlatformerCharacterState
             CharacterControlUtilities.StandardAirMove(ref characterBody.RelativeVelocity, airAcceleration, character.AirMaxSpeed, characterBody.GroundingUp, deltaTime, false);
 
             // Cancel air acceleration from input if we would hit a non-grounded surface (prevents air-climbing slopes at high air accelerations)
-            if (aspect.CharacterAspect.MovementWouldHitNonGroundedObstruction(in aspect, ref context, ref baseContext, characterBody.RelativeVelocity * deltaTime, out ColliderCastHit hit))
+            if (KinematicCharacterUtilities.MovementWouldHitNonGroundedObstruction(
+                    in processor, 
+                    ref context, 
+                    ref baseContext, 
+                    processor.CharacterDataAccess.CharacterProperties.ValueRO,
+                    processor.CharacterDataAccess.LocalTransform.ValueRO,
+                    processor.CharacterDataAccess.CharacterEntity,
+                    processor.CharacterDataAccess.PhysicsCollider.ValueRO,
+                    characterBody.RelativeVelocity * deltaTime, 
+                    out ColliderCastHit hit))
             {
                 characterBody.RelativeVelocity = tmpVelocity;
                 
@@ -81,18 +90,18 @@ public struct AirMoveState : IPlatformerCharacterState
         // Drag
         CharacterControlUtilities.ApplyDragToVelocity(ref characterBody.RelativeVelocity, deltaTime, character.AirDrag);
 
-        aspect.HandlePhysicsUpdatePhase2(ref context, ref baseContext, true, true, true, true, true);
+        processor.HandlePhysicsUpdatePhase2(ref context, ref baseContext, true, true, true, true, true);
 
-        DetectTransitions(ref context, ref baseContext, in aspect);
+        DetectTransitions(ref context, ref baseContext, in processor);
     }
 
-    public void OnStateVariableUpdate(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterAspect aspect)
+    public void OnStateVariableUpdate(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterProcessor processor)
     {
         float deltaTime = baseContext.Time.DeltaTime;
-        ref PlatformerCharacterComponent character = ref aspect.Character.ValueRW;
-        ref PlatformerCharacterControl characterControl = ref aspect.CharacterControl.ValueRW;
-        ref quaternion characterRotation = ref aspect.CharacterAspect.LocalTransform.ValueRW.Rotation;
-        CustomGravity customGravity = aspect.CustomGravity.ValueRO;
+        ref PlatformerCharacterComponent character = ref processor.Character.ValueRW;
+        ref PlatformerCharacterControl characterControl = ref processor.CharacterControl.ValueRW;
+        ref quaternion characterRotation = ref processor.CharacterDataAccess.LocalTransform.ValueRW.Rotation;
+        CustomGravity customGravity = processor.CustomGravity.ValueRO;
         
         if (math.lengthsq(characterControl.MoveVector) > 0f)
         {
@@ -109,63 +118,63 @@ public struct AirMoveState : IPlatformerCharacterState
 
     public void GetMoveVectorFromPlayerInput(in PlatformerPlayerInputs inputs, quaternion cameraRotation, out float3 moveVector)
     {
-        PlatformerCharacterAspect.GetCommonMoveVectorFromPlayerInput(in inputs, cameraRotation, out moveVector);
+        PlatformerCharacterProcessor.GetCommonMoveVectorFromPlayerInput(in inputs, cameraRotation, out moveVector);
     }
 
-    public bool DetectTransitions(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterAspect aspect)
+    public bool DetectTransitions(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterProcessor processor)
     {
-        ref KinematicCharacterBody characterBody = ref aspect.CharacterAspect.CharacterBody.ValueRW;
-        ref PlatformerCharacterComponent character = ref aspect.Character.ValueRW;
-        ref PlatformerCharacterControl characterControl = ref aspect.CharacterControl.ValueRW;
-        ref PlatformerCharacterStateMachine stateMachine = ref aspect.StateMachine.ValueRW;
+        ref KinematicCharacterBody characterBody = ref processor.CharacterDataAccess.CharacterBody.ValueRW;
+        ref PlatformerCharacterComponent character = ref processor.Character.ValueRW;
+        ref PlatformerCharacterControl characterControl = ref processor.CharacterControl.ValueRW;
+        ref PlatformerCharacterStateMachine stateMachine = ref processor.StateMachine.ValueRW;
         
-        if (characterControl.RopePressed && RopeSwingState.DetectRopePoints(in baseContext.PhysicsWorld, in aspect, out float3 detectedRopeAnchorPoint))
+        if (characterControl.RopePressed && RopeSwingState.DetectRopePoints(in baseContext.PhysicsWorld, in processor, out float3 detectedRopeAnchorPoint))
         {
             stateMachine.RopeSwingState.AnchorPoint = detectedRopeAnchorPoint;
-            stateMachine.TransitionToState(CharacterState.RopeSwing, ref context, ref baseContext, in aspect);
+            stateMachine.TransitionToState(CharacterState.RopeSwing, ref context, ref baseContext, in processor);
             return true;
         }
 
         if (characterControl.RollHeld)
         {
-            stateMachine.TransitionToState(CharacterState.Rolling, ref context, ref baseContext, in aspect);
+            stateMachine.TransitionToState(CharacterState.Rolling, ref context, ref baseContext, in processor);
             return true;
         }
 
         if (characterControl.DashPressed)
         {
-            stateMachine.TransitionToState(CharacterState.Dashing, ref context, ref baseContext, in aspect);
+            stateMachine.TransitionToState(CharacterState.Dashing, ref context, ref baseContext, in processor);
             return true;
         }
 
         if (characterBody.IsGrounded)
         {
-            stateMachine.TransitionToState(CharacterState.GroundMove, ref context, ref baseContext, in aspect);
+            stateMachine.TransitionToState(CharacterState.GroundMove, ref context, ref baseContext, in processor);
             return true;
         }
 
         if (characterControl.SprintHeld && character.HasDetectedMoveAgainstWall)
         {
-            stateMachine.TransitionToState(CharacterState.WallRun, ref context, ref baseContext, in aspect);
+            stateMachine.TransitionToState(CharacterState.WallRun, ref context, ref baseContext, in processor);
             return true;
         }
 
-        if (LedgeGrabState.CanGrabLedge(ref context, ref baseContext, in aspect, out Entity ledgeEntity, out ColliderCastHit ledgeSurfaceHit))
+        if (LedgeGrabState.CanGrabLedge(ref context, ref baseContext, in processor, out Entity ledgeEntity, out ColliderCastHit ledgeSurfaceHit))
         {
-            stateMachine.TransitionToState(CharacterState.LedgeGrab, ref context, ref baseContext, in aspect);
-            aspect.CharacterAspect.SetOrUpdateParentBody(ref baseContext, ref characterBody, ledgeEntity, ledgeSurfaceHit.Position); 
+            stateMachine.TransitionToState(CharacterState.LedgeGrab, ref context, ref baseContext, in processor);
+            KinematicCharacterUtilities.SetOrUpdateParentBody(ref baseContext, ref characterBody, ledgeEntity, ledgeSurfaceHit.Position); 
             return true;
         }
 
         if (characterControl.ClimbPressed)
         {
-            if (ClimbingState.CanStartClimbing(ref context, ref baseContext, in aspect))
+            if (ClimbingState.CanStartClimbing(ref context, ref baseContext, in processor))
             {
-                stateMachine.TransitionToState(CharacterState.Climbing, ref context, ref baseContext, in aspect);
+                stateMachine.TransitionToState(CharacterState.Climbing, ref context, ref baseContext, in processor);
                 return true;
             }
         }
 
-        return aspect.DetectGlobalTransitions(ref context, ref baseContext);
+        return processor.DetectGlobalTransitions(ref context, ref baseContext);
     }
 }

@@ -1,22 +1,16 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.Runtime.InteropServices;
-using Unity.Collections;
 using Unity.Entities;
 using Unity.Entities.Content;
-using Unity.Entities.Serialization;
 using Unity.Logging;
 using Unity.Mathematics;
 using Unity.NetCode;
 using Unity.Networking.Transport;
-using Unity.Scenes;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
 using UnityEngine.VFX;
 using Cursor = UnityEngine.Cursor;
-using Object = UnityEngine.Object;
 
 namespace OnlineFPS
 {
@@ -53,25 +47,25 @@ namespace OnlineFPS
 
         public GameSession GameSession;
 
-        private VisualElement _menuRootVisualElement;
-        private VisualElement _ConnectionPanel;
-        private VisualElement _ConnectingPanel;
-        private VisualElement _InGamePanel;
-        private TextField _IPField;
-        private TextField _PortField;
-        private Button _HostButton;
-        private Button _JoinButton;
-        private Button _DisconnectButton;
-        private TextField _NameTextField;
-        private Toggle _SpectatorToggle;
-        private Slider _LookSensitivitySlider;
-        private VisualElement _respawnScreenRootVisualElement;
-        private Label _RespawnMessageLabel;
+        VisualElement m_MenuRootVisualElement;
+        VisualElement m_ConnectionPanel;
+        VisualElement m_ConnectingPanel;
+        VisualElement m_InGamePanel;
+        TextField m_IPField;
+        TextField m_PortField;
+        Button m_HostButton;
+        Button m_JoinButton;
+        Button m_DisconnectButton;
+        TextField m_NameTextField;
+        Toggle m_SpectatorToggle;
+        Slider m_LookSensitivitySlider;
+        VisualElement m_RespawnScreenRootVisualElement;
+        Label m_RespawnMessageLabel;
 
-        private World _nonGameWorld;
-        private bool _menuDisplayEnabled;
-        private MenuState _menuState;
-        private int _sceneBuildIndexForSubscenesLoad = -1;
+        World m_NonGameWorld;
+        bool m_MenuDisplayEnabled;
+        MenuState m_MenuState;
+        int m_SceneBuildIndexForSubscenesLoad = -1;
 
         public const string ElementName_ConnectionPanel = "ConnectionPanel";
         public const string ElementName_ConnectingPanel = "ConnectingPanel";
@@ -105,47 +99,47 @@ namespace OnlineFPS
             {
                 if (Instance != null)
                 {
-                    GameObject.Destroy(Instance.gameObject);
+                    Destroy(Instance.gameObject);
                 }
 
                 Instance = this;
-                GameObject.DontDestroyOnLoad(this.gameObject);
+                DontDestroyOnLoad(gameObject);
             }
 
             GameInput.Initialize();
 
-            _menuState = MenuState.InMenu;
-            _menuDisplayEnabled = true;
+            m_MenuState = MenuState.InMenu;
+            m_MenuDisplayEnabled = true;
 
             // Get UI elements
             {
-                _menuRootVisualElement = MenuDocument.rootVisualElement;
-                _ConnectionPanel = _menuRootVisualElement.Q<VisualElement>(ElementName_ConnectionPanel);
-                _ConnectingPanel = _menuRootVisualElement.Q<VisualElement>(ElementName_ConnectingPanel);
-                _InGamePanel = _menuRootVisualElement.Q<VisualElement>(ElementName_InGamePanel);
-                _IPField = _menuRootVisualElement.Q<TextField>(ElementName_IPField);
-                _PortField = _menuRootVisualElement.Q<TextField>(ElementName_PortField);
-                _HostButton = _menuRootVisualElement.Q<Button>(ElementName_HostButton);
-                _JoinButton = _menuRootVisualElement.Q<Button>(ElementName_JoinButton);
-                _DisconnectButton = _menuRootVisualElement.Q<Button>(ElementName_DisconnectButton);
-                _NameTextField = _menuRootVisualElement.Q<TextField>(ElementName_NameTextField);
-                _SpectatorToggle = _menuRootVisualElement.Q<Toggle>(ElementName_SpectatorToggle);
-                _LookSensitivitySlider = _menuRootVisualElement.Q<Slider>(ElementName_LookSensitivitySlider);
-                _respawnScreenRootVisualElement = RespawnScreenDocument.rootVisualElement;
-                _RespawnMessageLabel = _respawnScreenRootVisualElement.Q<Label>(ElementName_RespawnMessageLabel);
+                m_MenuRootVisualElement = MenuDocument.rootVisualElement;
+                m_ConnectionPanel = m_MenuRootVisualElement.Q<VisualElement>(ElementName_ConnectionPanel);
+                m_ConnectingPanel = m_MenuRootVisualElement.Q<VisualElement>(ElementName_ConnectingPanel);
+                m_InGamePanel = m_MenuRootVisualElement.Q<VisualElement>(ElementName_InGamePanel);
+                m_IPField = m_MenuRootVisualElement.Q<TextField>(ElementName_IPField);
+                m_PortField = m_MenuRootVisualElement.Q<TextField>(ElementName_PortField);
+                m_HostButton = m_MenuRootVisualElement.Q<Button>(ElementName_HostButton);
+                m_JoinButton = m_MenuRootVisualElement.Q<Button>(ElementName_JoinButton);
+                m_DisconnectButton = m_MenuRootVisualElement.Q<Button>(ElementName_DisconnectButton);
+                m_NameTextField = m_MenuRootVisualElement.Q<TextField>(ElementName_NameTextField);
+                m_SpectatorToggle = m_MenuRootVisualElement.Q<Toggle>(ElementName_SpectatorToggle);
+                m_LookSensitivitySlider = m_MenuRootVisualElement.Q<Slider>(ElementName_LookSensitivitySlider);
+                m_RespawnScreenRootVisualElement = RespawnScreenDocument.rootVisualElement;
+                m_RespawnMessageLabel = m_RespawnScreenRootVisualElement.Q<Label>(ElementName_RespawnMessageLabel);
             }
 
             // Default data
-            _IPField.SetValueWithoutNotify(DefaultIP);
-            _PortField.SetValueWithoutNotify(DefaultPort.ToString());
-            _NameTextField.SetValueWithoutNotify("Player");
-            _LookSensitivitySlider.SetValueWithoutNotify(GameSettings.LookSensitivity);
+            m_IPField.SetValueWithoutNotify(DefaultIP);
+            m_PortField.SetValueWithoutNotify(DefaultPort.ToString());
+            m_NameTextField.SetValueWithoutNotify("Player");
+            m_LookSensitivitySlider.SetValueWithoutNotify(GameSettings.LookSensitivity);
 
             // Events
-            _HostButton.RegisterCallback<ClickEvent>(OnHostButton);
-            _JoinButton.RegisterCallback<ClickEvent>(OnJoinButton);
-            _DisconnectButton.RegisterCallback<ClickEvent>(OnDisconnectButton);
-            _LookSensitivitySlider.RegisterValueChangedCallback(OnLookSensitivitySlider);
+            m_HostButton.RegisterCallback<ClickEvent>(OnHostButton);
+            m_JoinButton.RegisterCallback<ClickEvent>(OnJoinButton);
+            m_DisconnectButton.RegisterCallback<ClickEvent>(OnDisconnectButton);
+            m_LookSensitivitySlider.RegisterValueChangedCallback(OnLookSensitivitySlider);
 
             // VFX
             VFXReferences.SparksGraph = SparksGraph;
@@ -188,7 +182,7 @@ namespace OnlineFPS
                     case ClientServerBootstrap.PlayType.Client:
                         GameSession =
                             GameSession.CreateClientSession(autoNetcodePlayMode.IP, autoNetcodePlayMode.Port,
-                                _NameTextField.value, _SpectatorToggle.value);
+                                m_NameTextField.value, m_SpectatorToggle.value);
                         break;
                     case ClientServerBootstrap.PlayType.Server:
                         GameSession = GameSession.CreateServerSession(autoNetcodePlayMode.IP, autoNetcodePlayMode.Port,
@@ -202,12 +196,12 @@ namespace OnlineFPS
             }
             else
             {
-                GameSession = GameSession.CreateLocalSession(_NameTextField.value, false);
+                GameSession = GameSession.CreateLocalSession(m_NameTextField.value, false);
             }
 #endif
         }
 
-        private void OnDestroy()
+        void OnDestroy()
         {
             VFXReferences.SparksRequestsBuffer?.Dispose();
             VFXReferences.ExplosionsRequestsBuffer?.Dispose();
@@ -216,13 +210,13 @@ namespace OnlineFPS
         void Update()
         {
             // Toggle menu visibility in game
-            if (_menuState == MenuState.InGame)
+            if (m_MenuState == MenuState.InGame)
             {
                 if (GameInput.InputActions.DefaultMap.ToggleMenu.WasPressedThisFrame())
                 {
-                    _menuDisplayEnabled = !_menuDisplayEnabled;
-                    _menuRootVisualElement.SetDisplay(_menuDisplayEnabled);
-                    if (_menuDisplayEnabled)
+                    m_MenuDisplayEnabled = !m_MenuDisplayEnabled;
+                    m_MenuRootVisualElement.SetDisplay(m_MenuDisplayEnabled);
+                    if (m_MenuDisplayEnabled)
                     {
                         Cursor.visible = true;
                         Cursor.lockState = CursorLockMode.None;
@@ -238,7 +232,7 @@ namespace OnlineFPS
             GameSession?.Update();
         }
 
-        private void OnHostButton(ClickEvent evt)
+        void OnHostButton(ClickEvent evt)
         {
             if (GameSession != null)
             {
@@ -250,18 +244,18 @@ namespace OnlineFPS
             }
             else
             {
-                if (_nonGameWorld != null && _nonGameWorld.IsCreated)
+                if (m_NonGameWorld != null && m_NonGameWorld.IsCreated)
                 {
-                    _nonGameWorld?.Dispose();
+                    m_NonGameWorld?.Dispose();
                 }
 
-                _nonGameWorld = null;
+                m_NonGameWorld = null;
 
                 StartHostGame();
             }
         }
 
-        private void OnJoinButton(ClickEvent evt)
+        void OnJoinButton(ClickEvent evt)
         {
             if (GameSession != null)
             {
@@ -273,18 +267,18 @@ namespace OnlineFPS
             }
             else
             {
-                if (_nonGameWorld != null && _nonGameWorld.IsCreated)
+                if (m_NonGameWorld != null && m_NonGameWorld.IsCreated)
                 {
-                    _nonGameWorld?.Dispose();
+                    m_NonGameWorld?.Dispose();
                 }
 
-                _nonGameWorld = null;
+                m_NonGameWorld = null;
 
                 StartJoinGame();
             }
         }
 
-        private void OnDisconnectButton(ClickEvent evt)
+        void OnDisconnectButton(ClickEvent evt)
         {
             if (GameSession != null)
             {
@@ -296,18 +290,18 @@ namespace OnlineFPS
             }
             else
             {
-                if (_nonGameWorld != null && _nonGameWorld.IsCreated)
+                if (m_NonGameWorld != null && m_NonGameWorld.IsCreated)
                 {
-                    _nonGameWorld?.Dispose();
+                    m_NonGameWorld?.Dispose();
                 }
 
-                _nonGameWorld = null;
+                m_NonGameWorld = null;
 
                 EndSessionAndReturnToMenu();
             }
         }
 
-        private void StartHostGame()
+        void StartHostGame()
         {
             int numThinClients = 0;
 #if UNITY_EDITOR
@@ -316,15 +310,15 @@ namespace OnlineFPS
 
             TryGetIPAndPort(out string ip, out ushort port);
             GameSession = GameSession.CreateClientServerSession(ip, port, numThinClients,
-                _NameTextField.value, _SpectatorToggle.value);
+                m_NameTextField.value, m_SpectatorToggle.value);
             GameSession.LoadSubsceneInAllGameWorlds(GameResourcesSubscene);
             LoadGameScene();
         }
 
-        private void StartJoinGame()
+        void StartJoinGame()
         {
             TryGetIPAndPort(out string ip, out ushort port);
-            GameSession = GameSession.CreateClientSession(ip, port, _NameTextField.value, _SpectatorToggle.value);
+            GameSession = GameSession.CreateClientSession(ip, port, m_NameTextField.value, m_SpectatorToggle.value);
             GameSession.LoadSubsceneInAllGameWorlds(GameResourcesSubscene);
             LoadGameScene();
         }
@@ -332,7 +326,7 @@ namespace OnlineFPS
         public void EndSessionAndReturnToMenu()
         {
             GameSession = null;
-            GameSession = GameSession.CreateLocalSession(_NameTextField.value, false);
+            GameSession = GameSession.CreateLocalSession(m_NameTextField.value, false);
             SetMenuState(MenuState.InMenu);
             LoadMenuScene();
         }
@@ -357,74 +351,74 @@ namespace OnlineFPS
             return autoNetcodePlayMode != null;
         }
 
-        private void LoadMenuScene()
+        void LoadMenuScene()
         {
             SceneManager.LoadScene(MenuScene.CachedBuildIndex, LoadSceneMode.Single);
         }
 
-        private void LoadGameScene()
+        void LoadGameScene()
         {
-            _sceneBuildIndexForSubscenesLoad = GameScene.CachedBuildIndex;
+            m_SceneBuildIndexForSubscenesLoad = GameScene.CachedBuildIndex;
             SceneManager.LoadScene(GameScene.CachedBuildIndex, LoadSceneMode.Single);
         }
 
-        private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
-            if (scene.buildIndex == _sceneBuildIndexForSubscenesLoad)
+            if (scene.buildIndex == m_SceneBuildIndexForSubscenesLoad)
             {
                 GameSession?.CreateSubscenesLoadRequest();
 
-                _sceneBuildIndexForSubscenesLoad = -1;
+                m_SceneBuildIndexForSubscenesLoad = -1;
             }
         }
 
         public void SetMenuState(MenuState state)
         {
-            _menuState = state;
-            switch (_menuState)
+            m_MenuState = state;
+            switch (m_MenuState)
             {
                 case MenuState.InMenu:
                 {
-                    _menuDisplayEnabled = true;
+                    m_MenuDisplayEnabled = true;
                     Cursor.visible = true;
                     Cursor.lockState = CursorLockMode.None;
-                    _ConnectionPanel.SetDisplay(true);
-                    _ConnectingPanel.SetDisplay(false);
-                    _InGamePanel.SetDisplay(false);
+                    m_ConnectionPanel.SetDisplay(true);
+                    m_ConnectingPanel.SetDisplay(false);
+                    m_InGamePanel.SetDisplay(false);
                     SetCrosshairActive(false);
                     SetRespawnScreenActive(false);
                     break;
                 }
                 case MenuState.Connecting:
                 {
-                    _menuDisplayEnabled = true;
+                    m_MenuDisplayEnabled = true;
                     Cursor.visible = false;
                     Cursor.lockState = CursorLockMode.Locked;
-                    _ConnectionPanel.SetDisplay(false);
-                    _ConnectingPanel.SetDisplay(true);
-                    _InGamePanel.SetDisplay(false);
+                    m_ConnectionPanel.SetDisplay(false);
+                    m_ConnectingPanel.SetDisplay(true);
+                    m_InGamePanel.SetDisplay(false);
                     SetCrosshairActive(false);
                     SetRespawnScreenActive(false);
                     break;
                 }
                 case MenuState.InGame:
                 {
-                    _menuDisplayEnabled = false;
+                    m_MenuDisplayEnabled = false;
                     Cursor.visible = false;
                     Cursor.lockState = CursorLockMode.Locked;
-                    _ConnectionPanel.SetDisplay(false);
-                    _ConnectingPanel.SetDisplay(false);
-                    _InGamePanel.SetDisplay(true);
+                    m_ConnectionPanel.SetDisplay(false);
+                    m_ConnectingPanel.SetDisplay(false);
+                    m_InGamePanel.SetDisplay(true);
                     SetCrosshairActive(true);
                     SetRespawnScreenActive(false);
                     break;
                 }
             }
 
-            _menuRootVisualElement.SetDisplay(_menuDisplayEnabled);
+            m_MenuRootVisualElement.SetDisplay(m_MenuDisplayEnabled);
         }
 
-        private void OnLookSensitivitySlider(ChangeEvent<float> value)
+        void OnLookSensitivitySlider(ChangeEvent<float> value)
         {
             GameSettings.LookSensitivity = value.newValue;
         }
@@ -436,20 +430,20 @@ namespace OnlineFPS
 
         public void SetRespawnScreenActive(bool active)
         {
-            _respawnScreenRootVisualElement.SetDisplay(active);
+            m_RespawnScreenRootVisualElement.SetDisplay(active);
         }
 
         public void SetRespawnScreenTimer(float time)
         {
-            _RespawnMessageLabel.text = $"Respawning in {((int)math.ceil(time))}...";
+            m_RespawnMessageLabel.text = $"Respawning in {((int)math.ceil(time))}...";
         }
 
-        private bool TryGetIPAndPort(out string ip, out ushort port)
+        bool TryGetIPAndPort(out string ip, out ushort port)
         {
-            ip = _IPField.value;
-            if (!ushort.TryParse(_PortField.value, out port))
+            ip = m_IPField.value;
+            if (!ushort.TryParse(m_PortField.value, out port))
             {
-                Log.Error($"Error: couldn't get valid port: {_PortField.value}");
+                Log.Error($"Error: couldn't get valid port: {m_PortField.value}");
                 return false;
             }
 

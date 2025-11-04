@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -12,42 +10,42 @@ public class FlyCam : MonoBehaviour
     public float RotationSpeed = 10f;
     public float RotationSharpness = 999999f;
 
-    private float _pitchAngle = 0f;
-    private Vector3 _planarForward = Vector3.forward;
-    private Vector3 _currentMoveVelocity = default;
-    private Vector2 _previousMousePos = default;
+    float m_PitchAngle = 0f;
+    Vector3 m_PlanarForward = Vector3.forward;
+    Vector3 m_CurrentMoveVelocity = default;
+    Vector2 m_PreviousMousePos = default;
 
     void Start()
     {
-        _planarForward = Vector3.ProjectOnPlane(transform.forward, Vector3.up).normalized;
-        _pitchAngle = Vector3.SignedAngle(_planarForward, transform.forward, transform.right);
+        m_PlanarForward = Vector3.ProjectOnPlane(transform.forward, Vector3.up).normalized;
+        m_PitchAngle = Vector3.SignedAngle(m_PlanarForward, transform.forward, transform.right);
     }
 
     void Update()
     {
         if (Mouse.current.rightButton.wasPressedThisFrame)
         {
-            _previousMousePos = Mouse.current.position.ReadValue();
+            m_PreviousMousePos = Mouse.current.position.ReadValue();
         }
 
         if (Mouse.current.rightButton.isPressed)
         {
             // Rotation Input
-            Vector3 mouseDelta = (Mouse.current.position.ReadValue() - _previousMousePos);
-            _previousMousePos = Mouse.current.position.ReadValue();
+            Vector3 mouseDelta = (Mouse.current.position.ReadValue() - m_PreviousMousePos);
+            m_PreviousMousePos = Mouse.current.position.ReadValue();
 
             // Yaw
             float yawAngleChange = mouseDelta.x * RotationSpeed * Time.deltaTime;
             Quaternion yawRotation = Quaternion.Euler(Vector3.up * yawAngleChange);
-            _planarForward = yawRotation * _planarForward;
+            m_PlanarForward = yawRotation * m_PlanarForward;
 
             // Pitch
-            _pitchAngle += -mouseDelta.y * RotationSpeed * Time.deltaTime;
-            _pitchAngle = Mathf.Clamp(_pitchAngle, -89f, 89f);
-            Quaternion pitchRotation = Quaternion.Euler(Vector3.right * _pitchAngle);
+            m_PitchAngle += -mouseDelta.y * RotationSpeed * Time.deltaTime;
+            m_PitchAngle = Mathf.Clamp(m_PitchAngle, -89f, 89f);
+            Quaternion pitchRotation = Quaternion.Euler(Vector3.right * m_PitchAngle);
 
             // Final rotation
-            Quaternion targetRotation = Quaternion.LookRotation(_planarForward, Vector3.up) * pitchRotation;
+            Quaternion targetRotation = Quaternion.LookRotation(m_PlanarForward, Vector3.up) * pitchRotation;
             transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, RotationSharpness * Time.deltaTime);
 
             // Move Input
@@ -63,8 +61,8 @@ public class FlyCam : MonoBehaviour
                 finalMaxSpeed *= SprintSpeedBoost;
             }
 
-            _currentMoveVelocity = Vector3.Lerp(_currentMoveVelocity, directionalInput * finalMaxSpeed, Mathf.Clamp01(MoveSharpness * Time.deltaTime));
-            transform.position += _currentMoveVelocity * Time.deltaTime;
+            m_CurrentMoveVelocity = Vector3.Lerp(m_CurrentMoveVelocity, directionalInput * finalMaxSpeed, Mathf.Clamp01(MoveSharpness * Time.deltaTime));
+            transform.position += m_CurrentMoveVelocity * Time.deltaTime;
         }
     }
 }

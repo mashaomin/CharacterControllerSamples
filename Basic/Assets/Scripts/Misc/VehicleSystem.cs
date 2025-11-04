@@ -1,7 +1,6 @@
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
-using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Physics;
 using Unity.Physics.Extensions;
@@ -24,23 +23,23 @@ public partial struct VehicleSystem : ISystem
 
         public T ClosestHit;
 
-        private Entity _wheelEntity;
-        private Entity _vehicleEntity;
-        private float _closestHitFraction;
+        Entity m_WheelEntity;
+        Entity m_VehicleEntity;
+        float m_ClosestHitFraction;
 
         public void Init(Entity wheelEntity, Entity vehicleEntity)
         {
-            _wheelEntity = wheelEntity;
-            _vehicleEntity = vehicleEntity;
-            _closestHitFraction = float.MaxValue;
+            m_WheelEntity = wheelEntity;
+            m_VehicleEntity = vehicleEntity;
+            m_ClosestHitFraction = float.MaxValue;
         }
 
         public bool AddHit(T hit)
         {
-            if (hit.Entity != _wheelEntity && hit.Entity != _vehicleEntity && hit.Fraction < _closestHitFraction)
+            if (hit.Entity != m_WheelEntity && hit.Entity != m_VehicleEntity && hit.Fraction < m_ClosestHitFraction)
             {
                 ClosestHit = hit;
-                _closestHitFraction = hit.Fraction;
+                m_ClosestHitFraction = hit.Fraction;
 
                 NumHits = 1;
                 return true;

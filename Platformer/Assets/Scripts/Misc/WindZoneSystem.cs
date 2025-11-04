@@ -60,7 +60,7 @@ public partial struct WindZoneSystem : ISystem
                     if (CharacterBodyLookup.TryGetComponent(otherEntity, out KinematicCharacterBody characterBody) && 
                         CharacterStateMachineLookup.TryGetComponent(otherEntity, out PlatformerCharacterStateMachine characterStateMachine))
                     {
-                        if (PlatformerCharacterAspect.CanBeAffectedByWindZone(characterStateMachine.CurrentState))
+                        if (PlatformerCharacterProcessor.CanBeAffectedByWindZone(characterStateMachine.CurrentState))
                         {
                             characterBody.RelativeVelocity += windZone.WindForce * DeltaTime;
                             CharacterBodyLookup[otherEntity] = characterBody;

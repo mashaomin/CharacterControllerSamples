@@ -2,22 +2,21 @@ using Unity.Entities;
 using Unity.CharacterController;
 using Unity.Mathematics;
 using Unity.Physics;
-using Unity.Transforms;
 
 public struct LedgeGrabState : IPlatformerCharacterState
 {
-    private bool DetectedMustExitLedge;
-    private float3 ForwardHitNormal;
+    bool m_DetectedMustExitLedge;
+    float3 m_ForwardHitNormal;
 
-    const float collisionOffset = 0.02f;
+    const float k_CollisionOffset = 0.02f;
     
-    public void OnStateEnter(CharacterState previousState, ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterAspect aspect)
+    public void OnStateEnter(CharacterState previousState, ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterProcessor processor)
     {
-        ref KinematicCharacterBody characterBody = ref aspect.CharacterAspect.CharacterBody.ValueRW;
-        ref KinematicCharacterProperties characterProperties = ref aspect.CharacterAspect.CharacterProperties.ValueRW;
-        ref PlatformerCharacterComponent character = ref aspect.Character.ValueRW;
+        ref KinematicCharacterBody characterBody = ref processor.CharacterDataAccess.CharacterBody.ValueRW;
+        ref KinematicCharacterProperties characterProperties = ref processor.CharacterDataAccess.CharacterProperties.ValueRW;
+        ref PlatformerCharacterComponent character = ref processor.Character.ValueRW;
         
-        aspect.SetCapsuleGeometry(character.StandingGeometry.ToCapsuleGeometry());
+        processor.SetCapsuleGeometry(character.StandingGeometry.ToCapsuleGeometry());
         
         characterProperties.EvaluateGrounding = false;
         characterProperties.DetectMovementCollisions = false;
@@ -27,10 +26,10 @@ public struct LedgeGrabState : IPlatformerCharacterState
         characterBody.IsGrounded = false;
     }
 
-    public void OnStateExit(CharacterState nextState, ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterAspect aspect)
+    public void OnStateExit(CharacterState nextState, ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterProcessor processor)
     {
-        ref KinematicCharacterBody characterBody = ref aspect.CharacterAspect.CharacterBody.ValueRW;
-        ref KinematicCharacterProperties characterProperties = ref aspect.CharacterAspect.CharacterProperties.ValueRW;
+        ref KinematicCharacterBody characterBody = ref processor.CharacterDataAccess.CharacterBody.ValueRW;
+        ref KinematicCharacterProperties characterProperties = ref processor.CharacterDataAccess.CharacterProperties.ValueRW;
         
         if (nextState != CharacterState.LedgeStandingUp)
         {
@@ -38,30 +37,30 @@ public struct LedgeGrabState : IPlatformerCharacterState
             characterProperties.DetectMovementCollisions = true;
             characterProperties.DecollideFromOverlaps = true;
 
-            aspect.CharacterAspect.SetOrUpdateParentBody(ref baseContext, ref characterBody, default, default); 
+            KinematicCharacterUtilities.SetOrUpdateParentBody(ref baseContext, ref characterBody, default, default); 
         }
 
         characterBody.RelativeVelocity = float3.zero;
     }
 
-    public void OnStatePhysicsUpdate(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterAspect aspect)
+    public void OnStatePhysicsUpdate(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterProcessor processor)
     {
         float deltaTime = baseContext.Time.DeltaTime;
-        ref KinematicCharacterBody characterBody = ref aspect.CharacterAspect.CharacterBody.ValueRW;
-        ref PlatformerCharacterComponent character = ref aspect.Character.ValueRW;
-        ref PlatformerCharacterControl characterControl = ref aspect.CharacterControl.ValueRW;
-        ref float3 characterPosition = ref aspect.CharacterAspect.LocalTransform.ValueRW.Position;
-        ref quaternion characterRotation = ref aspect.CharacterAspect.LocalTransform.ValueRW.Rotation;
+        ref KinematicCharacterBody characterBody = ref processor.CharacterDataAccess.CharacterBody.ValueRW;
+        ref PlatformerCharacterComponent character = ref processor.Character.ValueRW;
+        ref PlatformerCharacterControl characterControl = ref processor.CharacterControl.ValueRW;
+        ref float3 characterPosition = ref processor.CharacterDataAccess.LocalTransform.ValueRW.Position;
+        ref quaternion characterRotation = ref processor.CharacterDataAccess.LocalTransform.ValueRW.Rotation;
         
-        aspect.HandlePhysicsUpdatePhase1(ref context, ref baseContext, true, false);
+        processor.HandlePhysicsUpdatePhase1(ref context, ref baseContext, true, false);
 
-        DetectedMustExitLedge = false;
+        m_DetectedMustExitLedge = false;
         characterBody.RelativeVelocity = float3.zero;
 
         LedgeDetection(
             ref context,
             ref baseContext,
-            in aspect,
+            in processor,
             characterPosition,
             characterRotation,
             out bool ledgeIsValid,
@@ -76,14 +75,14 @@ public struct LedgeGrabState : IPlatformerCharacterState
 
         if (ledgeIsValid && !isObstructedAtSurface)
         {
-            ForwardHitNormal = forwardHit.SurfaceNormal;
+            m_ForwardHitNormal = forwardHit.SurfaceNormal;
 
             // Stick to wall
             float3 characterForward = MathUtilities.GetForwardFromRotation(characterRotation);
-            characterPosition += characterForward * (forwardHitDistance - collisionOffset);
+            characterPosition += characterForward * (forwardHitDistance - k_CollisionOffset);
 
             // Adjust to ledge height
-            characterPosition += characterBody.GroundingUp * (upOffsetToPlaceLedgeDetectionPointAtLedgeLevel - collisionOffset);
+            characterPosition += characterBody.GroundingUp * (upOffsetToPlaceLedgeDetectionPointAtLedgeLevel - k_CollisionOffset);
 
             if (math.lengthsq(characterControl.MoveVector) > 0f)
             {
@@ -96,7 +95,7 @@ public struct LedgeGrabState : IPlatformerCharacterState
                 LedgeDetection(
                     ref context,
                     ref baseContext,
-                    in aspect,
+                    in processor,
                     targetTranslationAfterMove,
                     characterRotation,
                     out bool afterMoveLedgeIsValid,
@@ -118,11 +117,11 @@ public struct LedgeGrabState : IPlatformerCharacterState
                 }
             }
             
-            aspect.CharacterAspect.SetOrUpdateParentBody(ref baseContext, ref characterBody, forwardHit.Entity, forwardHit.Position); 
+            KinematicCharacterUtilities.SetOrUpdateParentBody(ref baseContext, ref characterBody, forwardHit.Entity, forwardHit.Position); 
         }
         else
         {
-            DetectedMustExitLedge = true;
+            m_DetectedMustExitLedge = true;
         }
 
         // Detect letting go of ledge
@@ -131,20 +130,20 @@ public struct LedgeGrabState : IPlatformerCharacterState
             character.LedgeGrabBlockCounter = 0.3f;
         }
 
-        aspect.HandlePhysicsUpdatePhase2(ref context, ref baseContext, false, false, false, false, true);
+        processor.HandlePhysicsUpdatePhase2(ref context, ref baseContext, false, false, false, false, true);
 
-        DetectTransitions(ref context, ref baseContext, in aspect);
+        DetectTransitions(ref context, ref baseContext, in processor);
     }
 
-    public void OnStateVariableUpdate(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterAspect aspect)
+    public void OnStateVariableUpdate(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterProcessor processor)
     {
         float deltaTime = baseContext.Time.DeltaTime;
-        ref KinematicCharacterBody characterBody = ref aspect.CharacterAspect.CharacterBody.ValueRW;
-        ref PlatformerCharacterComponent character = ref aspect.Character.ValueRW;
-        ref quaternion characterRotation = ref aspect.CharacterAspect.LocalTransform.ValueRW.Rotation;
+        ref KinematicCharacterBody characterBody = ref processor.CharacterDataAccess.CharacterBody.ValueRW;
+        ref PlatformerCharacterComponent character = ref processor.Character.ValueRW;
+        ref quaternion characterRotation = ref processor.CharacterDataAccess.LocalTransform.ValueRW.Rotation;
 
         // Adjust rotation to face current ledge wall
-        quaternion targetRotation = quaternion.LookRotationSafe(math.normalizesafe(MathUtilities.ProjectOnPlane(-ForwardHitNormal, characterBody.GroundingUp)), characterBody.GroundingUp);
+        quaternion targetRotation = quaternion.LookRotationSafe(math.normalizesafe(MathUtilities.ProjectOnPlane(-m_ForwardHitNormal, characterBody.GroundingUp)), characterBody.GroundingUp);
         characterRotation = math.slerp(characterRotation, targetRotation, MathUtilities.GetSharpnessInterpolant(character.LedgeRotationSharpness, deltaTime));
     }
 
@@ -156,20 +155,20 @@ public struct LedgeGrabState : IPlatformerCharacterState
 
     public void GetMoveVectorFromPlayerInput(in PlatformerPlayerInputs inputs, quaternion cameraRotation, out float3 moveVector)
     {
-        PlatformerCharacterAspect.GetCommonMoveVectorFromPlayerInput(in inputs, cameraRotation, out moveVector);
+        PlatformerCharacterProcessor.GetCommonMoveVectorFromPlayerInput(in inputs, cameraRotation, out moveVector);
     }
 
-    public bool DetectTransitions(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterAspect aspect)
+    public bool DetectTransitions(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterProcessor processor)
     {
-        ref PlatformerCharacterComponent character = ref aspect.Character.ValueRW;
-        ref PlatformerCharacterControl characterControl = ref aspect.CharacterControl.ValueRW;
-        ref float3 characterPosition = ref aspect.CharacterAspect.LocalTransform.ValueRW.Position;
-        ref quaternion characterRotation = ref aspect.CharacterAspect.LocalTransform.ValueRW.Rotation;
-        ref PlatformerCharacterStateMachine stateMachine = ref aspect.StateMachine.ValueRW;
+        ref PlatformerCharacterComponent character = ref processor.Character.ValueRW;
+        ref PlatformerCharacterControl characterControl = ref processor.CharacterControl.ValueRW;
+        ref float3 characterPosition = ref processor.CharacterDataAccess.LocalTransform.ValueRW.Position;
+        ref quaternion characterRotation = ref processor.CharacterDataAccess.LocalTransform.ValueRW.Rotation;
+        ref PlatformerCharacterStateMachine stateMachine = ref processor.StateMachine.ValueRW;
         
-        if (IsLedgeGrabBlocked(in character) || DetectedMustExitLedge)
+        if (IsLedgeGrabBlocked(in character) || m_DetectedMustExitLedge)
         {
-            stateMachine.TransitionToState(CharacterState.AirMove, ref context, ref baseContext, in aspect);
+            stateMachine.TransitionToState(CharacterState.AirMove, ref context, ref baseContext, in processor);
             return true;
         }
 
@@ -178,7 +177,7 @@ public struct LedgeGrabState : IPlatformerCharacterState
             LedgeDetection(
                 ref context,
                 ref baseContext,
-                in aspect,
+                in processor,
                 characterPosition,
                 characterRotation,
                 out bool ledgeIsValid,
@@ -194,12 +193,12 @@ public struct LedgeGrabState : IPlatformerCharacterState
             if (ledgeIsValid && !isObstructedAtSurface && wouldBeGroundedOnLedgeSurfaceHit)
             {
                 stateMachine.LedgeStandingUpState.StandingPoint = surfaceHit.Position;
-                stateMachine.TransitionToState(CharacterState.LedgeStandingUp, ref context, ref baseContext, in aspect);
+                stateMachine.TransitionToState(CharacterState.LedgeStandingUp, ref context, ref baseContext, in processor);
                 return true;
             }
         }
 
-        return aspect.DetectGlobalTransitions(ref context, ref baseContext);
+        return processor.DetectGlobalTransitions(ref context, ref baseContext);
     }
 
     public static bool IsLedgeGrabBlocked(in PlatformerCharacterComponent character)
@@ -207,15 +206,15 @@ public struct LedgeGrabState : IPlatformerCharacterState
         return character.LedgeGrabBlockCounter > 0f;
     }
 
-    public static bool CanGrabLedge(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterAspect aspect, out Entity ledgeEntity, out ColliderCastHit ledgeSurfaceHit)
+    public static bool CanGrabLedge(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterProcessor processor, out Entity ledgeEntity, out ColliderCastHit ledgeSurfaceHit)
     {
         ledgeEntity = Entity.Null;
         ledgeSurfaceHit = default;
         
-        ref KinematicCharacterBody characterBody = ref aspect.CharacterAspect.CharacterBody.ValueRW;
-        ref PlatformerCharacterComponent character = ref aspect.Character.ValueRW;
-        ref float3 characterPosition = ref aspect.CharacterAspect.LocalTransform.ValueRW.Position;
-        ref quaternion characterRotation = ref aspect.CharacterAspect.LocalTransform.ValueRW.Rotation;
+        ref KinematicCharacterBody characterBody = ref processor.CharacterDataAccess.CharacterBody.ValueRW;
+        ref PlatformerCharacterComponent character = ref processor.Character.ValueRW;
+        ref float3 characterPosition = ref processor.CharacterDataAccess.LocalTransform.ValueRW.Position;
+        ref quaternion characterRotation = ref processor.CharacterDataAccess.LocalTransform.ValueRW.Rotation;
 
         if (IsLedgeGrabBlocked(in character))
         {
@@ -225,7 +224,7 @@ public struct LedgeGrabState : IPlatformerCharacterState
         LedgeDetection(
             ref context,
             ref baseContext,
-            in aspect,
+            in processor,
             characterPosition,
             characterRotation,
             out bool ledgeIsValid,
@@ -255,7 +254,7 @@ public struct LedgeGrabState : IPlatformerCharacterState
     public static void LedgeDetection(
         ref PlatformerCharacterUpdateContext context,
         ref KinematicCharacterUpdateContext baseContext,
-        in PlatformerCharacterAspect aspect,
+        in PlatformerCharacterProcessor processor,
         float3 atCharacterTranslation,
         quaternion atCharacterRotation,
         out bool ledgeIsValid,
@@ -280,10 +279,10 @@ public struct LedgeGrabState : IPlatformerCharacterState
         isObstructedAtCurrentPosition = false;
         upOffsetToPlaceLedgeDetectionPointAtLedgeLevel = -1f;
         
-        ref KinematicCharacterBody characterBody = ref aspect.CharacterAspect.CharacterBody.ValueRW;
-        ref KinematicCharacterProperties characterProperties = ref aspect.CharacterAspect.CharacterProperties.ValueRW;
-        ref PlatformerCharacterComponent character = ref aspect.Character.ValueRW;
-        float characterScale = aspect.CharacterAspect.LocalTransform.ValueRO.Scale;
+        ref KinematicCharacterBody characterBody = ref processor.CharacterDataAccess.CharacterBody.ValueRW;
+        ref KinematicCharacterProperties characterProperties = ref processor.CharacterDataAccess.CharacterProperties.ValueRW;
+        ref PlatformerCharacterComponent character = ref processor.Character.ValueRW;
+        float characterScale = processor.CharacterDataAccess.LocalTransform.ValueRO.Scale;
 
         float3 currentCharacterForward = MathUtilities.GetForwardFromRotation(atCharacterRotation);
         float3 currentCharacterRight = MathUtilities.GetRightFromRotation(atCharacterRotation);
@@ -293,10 +292,12 @@ public struct LedgeGrabState : IPlatformerCharacterState
 
         // Forward detection against the ledge wall
         bool forwardHitDetected = false;
-        if (aspect.CharacterAspect.CastColliderClosestCollisions(
-                in aspect,
+        if (KinematicCharacterUtilities.CastColliderClosestCollisions(
+                in processor,
                 ref context,
                 ref baseContext,
+                processor.CharacterDataAccess.CharacterEntity,
+                processor.CharacterDataAccess.PhysicsCollider.ValueRO,
                 atCharacterTranslation,
                 atCharacterRotation,
                 characterScale,
@@ -309,10 +310,12 @@ public struct LedgeGrabState : IPlatformerCharacterState
         {
             forwardHitDetected = true;
 
-            if (aspect.CharacterAspect.CalculateDistanceClosestCollisions(
-                    in aspect,
+            if (KinematicCharacterUtilities.CalculateDistanceClosestCollisions(
+                    in processor,
                     ref context,
                     ref baseContext,
+                    processor.CharacterDataAccess.CharacterEntity,
+                    processor.CharacterDataAccess.PhysicsCollider.ValueRO,
                     atCharacterTranslation,
                     atCharacterRotation,
                     characterScale,
@@ -343,14 +346,16 @@ public struct LedgeGrabState : IPlatformerCharacterState
         bool surfaceRaycastHitDetected = false;
         float3 startPointOfSurfaceDetectionRaycast = worldSpaceLedgeDetectionPoint + (characterBody.GroundingUp * character.LedgeSurfaceProbingHeight);
         float surfaceRaycastLength = character.LedgeSurfaceProbingHeight + ledgeProbingToleranceOffset;
-        if (aspect.CharacterAspect.RaycastClosestCollisions(
-                in aspect,
+        if (KinematicCharacterUtilities.RaycastClosestCollisions(
+                in processor,
                 ref context,
                 ref baseContext,
+                processor.CharacterDataAccess.CharacterEntity,
                 startPointOfSurfaceDetectionRaycast,
                 -characterBody.GroundingUp,
                 surfaceRaycastLength,
                 characterProperties.ShouldIgnoreDynamicBodies(),
+                processor.CharacterDataAccess.PhysicsCollider.ValueRO,
                 out RaycastHit surfaceRaycastHit,
                 out float surfaceRaycastHitDistance))
         {
@@ -364,14 +369,16 @@ public struct LedgeGrabState : IPlatformerCharacterState
         if (!surfaceRaycastHitDetected)
         {
             float3 rightStartPointOfSurfaceDetectionRaycast = startPointOfSurfaceDetectionRaycast + (currentCharacterRight * character.LedgeSideProbingLength);
-            if (aspect.CharacterAspect.RaycastClosestCollisions(
-                    in aspect,
+            if (KinematicCharacterUtilities.RaycastClosestCollisions(
+                    in processor,
                     ref context,
                     ref baseContext,
+                    processor.CharacterDataAccess.CharacterEntity,
                     rightStartPointOfSurfaceDetectionRaycast,
                     -characterBody.GroundingUp,
                     surfaceRaycastLength,
                     characterProperties.ShouldIgnoreDynamicBodies(),
+                    processor.CharacterDataAccess.PhysicsCollider.ValueRO,
                     out surfaceRaycastHit,
                     out surfaceRaycastHitDistance))
             {
@@ -384,14 +391,16 @@ public struct LedgeGrabState : IPlatformerCharacterState
         if (!surfaceRaycastHitDetected)
         {
             float3 leftStartPointOfSurfaceDetectionRaycast = startPointOfSurfaceDetectionRaycast - (currentCharacterRight * character.LedgeSideProbingLength);
-            if (aspect.CharacterAspect.RaycastClosestCollisions(
-                    in aspect,
+            if (KinematicCharacterUtilities.RaycastClosestCollisions(
+                    in processor,
                     ref context,
                     ref baseContext,
+                    processor.CharacterDataAccess.CharacterEntity,
                     leftStartPointOfSurfaceDetectionRaycast,
                     -characterBody.GroundingUp,
                     surfaceRaycastLength,
                     characterProperties.ShouldIgnoreDynamicBodies(),
+                    processor.CharacterDataAccess.PhysicsCollider.ValueRO,
                     out surfaceRaycastHit,
                     out surfaceRaycastHitDistance))
             {
@@ -422,10 +431,12 @@ public struct LedgeGrabState : IPlatformerCharacterState
         float3 startPointOfSurfaceObstructionDetectionCast = surfaceRaycastHit.Position + (characterBody.GroundingUp * character.LedgeSurfaceObstructionProbingHeight);
 
         // Check obstructions at surface hit point
-        if (aspect.CharacterAspect.CastColliderClosestCollisions(
-                in aspect,
+        if (KinematicCharacterUtilities.CastColliderClosestCollisions(
+                in processor,
                 ref context,
                 ref baseContext,
+                processor.CharacterDataAccess.CharacterEntity,
+                processor.CharacterDataAccess.PhysicsCollider.ValueRO,
                 startPointOfSurfaceObstructionDetectionCast,
                 atCharacterRotation,
                 characterScale,
@@ -433,6 +444,7 @@ public struct LedgeGrabState : IPlatformerCharacterState
                 character.LedgeSurfaceObstructionProbingHeight + ledgeProbingToleranceOffset,
                 false,
                 characterProperties.ShouldIgnoreDynamicBodies(),
+                
                 out surfaceHit,
                 out float closestSurfaceObstructionHitDistance))
         {
@@ -456,6 +468,6 @@ public struct LedgeGrabState : IPlatformerCharacterState
 
         characterTranslationAtLedgeSurface = startPointOfSurfaceObstructionDetectionCast + (-characterBody.GroundingUp * closestSurfaceObstructionHitDistance);
 
-        wouldBeGroundedOnLedgeSurfaceHit = aspect.IsGroundedOnHit(ref context, ref baseContext, new BasicHit(surfaceHit), 0);
+        wouldBeGroundedOnLedgeSurfaceHit = processor.IsGroundedOnHit(ref context, ref baseContext, new BasicHit(surfaceHit), 0);
     }
 }

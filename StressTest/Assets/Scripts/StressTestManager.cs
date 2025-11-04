@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using Unity.Burst;
 using UnityEngine;
@@ -29,25 +28,25 @@ public class StressTestManager : MonoBehaviour
     public Toggle SaveRestoreStateToggle;
     public Toggle EnhancedGroundPrecision;
 
-    private bool HasInitializedFromEntities;
-    private World _world;
-    private EntityManager _entityManager;
-    private EntityQuery _managerSingletonQuery;
+    bool m_HasInitializedFromEntities;
+    World m_World;
+    EntityManager m_EntityManager;
+    EntityQuery m_ManagerSingletonQuery;
 
     void Start()
     {
-        _world = World.DefaultGameObjectInjectionWorld;
-        _entityManager = _world.EntityManager;
-        _managerSingletonQuery = new EntityQueryBuilder(Allocator.Temp)
+        m_World = World.DefaultGameObjectInjectionWorld;
+        m_EntityManager = m_World.EntityManager;
+        m_ManagerSingletonQuery = new EntityQueryBuilder(Allocator.Temp)
             .WithAll<
                 StressTestManagerSystem.EnvironmentPrefabs>()
             .WithAllRW<
                 StressTestManagerSystem.Singleton,
                 StressTestManagerSystem.Event>()
-            .Build(_entityManager);
+            .Build(m_EntityManager);
         
         // No fixedUpdate, for performance measuring
-        _world.GetOrCreateSystemManaged<FixedStepSimulationSystemGroup>().RateManager = null;
+        m_World.GetOrCreateSystemManaged<FixedStepSimulationSystemGroup>().RateManager = null;
 
         // Subscribe UI
         SpawnButton.onClick.AddListener(SpawnCharacters);
@@ -68,9 +67,9 @@ public class StressTestManager : MonoBehaviour
 
     public bool TryGetManagerSingleton(out Entity entity)
     {
-        if (_managerSingletonQuery.HasSingleton<StressTestManagerSystem.Singleton>())
+        if (m_ManagerSingletonQuery.HasSingleton<StressTestManagerSystem.Singleton>())
         {
-            entity = _managerSingletonQuery.GetSingletonEntity();
+            entity = m_ManagerSingletonQuery.GetSingletonEntity();
             return true;
         }
 
@@ -80,22 +79,22 @@ public class StressTestManager : MonoBehaviour
 
     public ref StressTestManagerSystem.Singleton GetManagerSingletonRef()
     {
-        return ref _managerSingletonQuery.GetSingletonRW<StressTestManagerSystem.Singleton>().ValueRW;
+        return ref m_ManagerSingletonQuery.GetSingletonRW<StressTestManagerSystem.Singleton>().ValueRW;
     }
 
     public DynamicBuffer<StressTestManagerSystem.EnvironmentPrefabs> GetManagerSingletonEnvPrefabsBuffer()
     {
-        return _managerSingletonQuery.GetSingletonBuffer<StressTestManagerSystem.EnvironmentPrefabs>();
+        return m_ManagerSingletonQuery.GetSingletonBuffer<StressTestManagerSystem.EnvironmentPrefabs>();
     }
 
     public DynamicBuffer<StressTestManagerSystem.Event> GetManagerSingletonEventsBuffer()
     {
-        return _managerSingletonQuery.GetSingletonBuffer<StressTestManagerSystem.Event>();
+        return m_ManagerSingletonQuery.GetSingletonBuffer<StressTestManagerSystem.Event>();
     }
     
     void Update()
     {
-        if (!HasInitializedFromEntities)
+        if (!m_HasInitializedFromEntities)
         {
             if (TryGetManagerSingleton(out Entity entity))
             {
@@ -106,7 +105,7 @@ public class StressTestManager : MonoBehaviour
                 {
                     EnvironmentPrefabDropdown.AddOptions(new List<Dropdown.OptionData>
                     {
-                        new Dropdown.OptionData(_entityManager.GetComponentData<GameObjectName>(environmentPrefabs[i].Prefab).Value.Value),
+                        new(m_EntityManager.GetComponentData<GameObjectName>(environmentPrefabs[i].Prefab).Value.Value),
                     });
                 }
 
@@ -117,7 +116,7 @@ public class StressTestManager : MonoBehaviour
 
                 ApplyCharacterSettings();
 
-                HasInitializedFromEntities = true;
+                m_HasInitializedFromEntities = true;
             }
         }
     }
@@ -301,21 +300,17 @@ public partial struct StressTestManagerSystem : ISystem
         public EventType Type;
     }
 
-    private EntityQuery _characterQuery;
+    EntityQuery m_CharacterQuery;
 
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
-        _characterQuery = KinematicCharacterUtilities.GetBaseCharacterQueryBuilder()
+        state.RequireForUpdate<Singleton>();
+        m_CharacterQuery = KinematicCharacterUtilities.GetBaseCharacterQueryBuilder()
             .WithAll<
                 StressTestCharacterComponent,
                 StressTestCharacterControl>()
             .Build(ref state);
-    }
-
-    [BurstCompile]
-    public void OnDestroy(ref SystemState state)
-    {
     }
 
     [BurstCompile]
@@ -371,7 +366,7 @@ public partial struct StressTestManagerSystem : ISystem
     }
 
     [BurstCompile]
-    private void SpawnCharacters(ref SystemState state, Singleton singleton)
+    void SpawnCharacters(ref SystemState state, Singleton singleton)
     {
         EntityCommandBuffer ecb = new EntityCommandBuffer(Allocator.Temp);
         DynamicBuffer<Entity> spawnedCharacters = SystemAPI.GetSingletonBuffer<SpawnedCharacter>().Reinterpret<Entity>();
@@ -381,6 +376,7 @@ public partial struct StressTestManagerSystem : ISystem
         {
             ecb.DestroyEntity(spawnedCharacters[i]);
         }
+        spawnedCharacters.Clear();
         
         // Spawn new characters
         int spawnResolution = Mathf.CeilToInt(Mathf.Sqrt(singleton.CharacterCount));
@@ -408,7 +404,7 @@ public partial struct StressTestManagerSystem : ISystem
     }
 
     [BurstCompile]
-    private void SpawnEnvironment(ref SystemState state, Singleton singleton)
+    void SpawnEnvironment(ref SystemState state, Singleton singleton)
     {
         EntityCommandBuffer ecb = new EntityCommandBuffer(Allocator.Temp);
         
@@ -427,7 +423,7 @@ public partial struct StressTestManagerSystem : ISystem
     }
 
     [BurstCompile]
-    private void ApplyPhysicsStep(ref SystemState state, Singleton singleton)
+    void ApplyPhysicsStep(ref SystemState state, Singleton singleton)
     {
         ref PhysicsStep physicsStep = ref SystemAPI.GetSingletonRW<PhysicsStep>().ValueRW;
         physicsStep.SimulationType = singleton.PhysicsStep ? SimulationType.UnityPhysics : SimulationType.NoPhysics;
@@ -436,9 +432,9 @@ public partial struct StressTestManagerSystem : ISystem
     }
 
     [BurstCompile]
-    private void ApplyStepHandling(ref SystemState state, Singleton singleton)
+    void ApplyStepHandling(ref SystemState state, Singleton singleton)
     {
-        NativeArray<Entity> entities = _characterQuery.ToEntityArray(Allocator.TempJob);
+        NativeArray<Entity> entities = m_CharacterQuery.ToEntityArray(Allocator.TempJob);
         for (int i = 0; i < entities.Length; i++)
         {
             StressTestCharacterComponent character = state.EntityManager.GetComponentData<StressTestCharacterComponent>(entities[i]);
@@ -449,9 +445,9 @@ public partial struct StressTestManagerSystem : ISystem
     }
 
     [BurstCompile]
-    private void ApplySlopeChanges(ref SystemState state, Singleton singleton)
+    void ApplySlopeChanges(ref SystemState state, Singleton singleton)
     {
-        NativeArray<Entity> entities = _characterQuery.ToEntityArray(Allocator.TempJob);
+        NativeArray<Entity> entities = m_CharacterQuery.ToEntityArray(Allocator.TempJob);
         for (int i = 0; i < entities.Length; i++)
         {
             StressTestCharacterComponent character = state.EntityManager.GetComponentData<StressTestCharacterComponent>(entities[i]);
@@ -463,9 +459,9 @@ public partial struct StressTestManagerSystem : ISystem
     }
 
     [BurstCompile]
-    private void ApplyProjectVelocityOnOverlaps(ref SystemState state, Singleton singleton)
+    void ApplyProjectVelocityOnOverlaps(ref SystemState state, Singleton singleton)
     {
-        NativeArray<Entity> entities = _characterQuery.ToEntityArray(Allocator.TempJob);
+        NativeArray<Entity> entities = m_CharacterQuery.ToEntityArray(Allocator.TempJob);
         for (int i = 0; i < entities.Length; i++)
         {
             KinematicCharacterProperties characterProperties = state.EntityManager.GetComponentData<KinematicCharacterProperties>(entities[i]);
@@ -476,9 +472,9 @@ public partial struct StressTestManagerSystem : ISystem
     }
 
     [BurstCompile]
-    private void ApplyStatefulHits(ref SystemState state, Singleton singleton)
+    void ApplyStatefulHits(ref SystemState state, Singleton singleton)
     {
-        NativeArray<Entity> entities = _characterQuery.ToEntityArray(Allocator.TempJob);
+        NativeArray<Entity> entities = m_CharacterQuery.ToEntityArray(Allocator.TempJob);
         for (int i = 0; i < entities.Length; i++)
         {
             StressTestCharacterComponent character = state.EntityManager.GetComponentData<StressTestCharacterComponent>(entities[i]);
@@ -489,9 +485,9 @@ public partial struct StressTestManagerSystem : ISystem
     }
 
     [BurstCompile]
-    private unsafe void ApplySimulateDynamic(ref SystemState state, Singleton singleton)
+    unsafe void ApplySimulateDynamic(ref SystemState state, Singleton singleton)
     {
-        NativeArray<Entity> entities = _characterQuery.ToEntityArray(Allocator.TempJob);
+        NativeArray<Entity> entities = m_CharacterQuery.ToEntityArray(Allocator.TempJob);
         for (int i = 0; i < entities.Length; i++)
         {
             KinematicCharacterProperties characterProperties = state.EntityManager.GetComponentData<KinematicCharacterProperties>(entities[i]);
@@ -499,7 +495,7 @@ public partial struct StressTestManagerSystem : ISystem
             state.EntityManager.SetComponentData(entities[i], characterProperties);
             
             PhysicsCollider physicsCollider = state.EntityManager.GetComponentData<PhysicsCollider>(entities[i]);
-            Unity.Physics.ConvexCollider* collider = (Unity.Physics.ConvexCollider*)physicsCollider.ColliderPtr;
+            ConvexCollider* collider = (ConvexCollider*)physicsCollider.ColliderPtr;
             Unity.Physics.Material material = collider->Material;
             collider->Material = material;
             state.EntityManager.SetComponentData(entities[i], physicsCollider);
@@ -508,9 +504,9 @@ public partial struct StressTestManagerSystem : ISystem
     }
 
     [BurstCompile]
-    private void ApplySaveRestoreState(ref SystemState state, Singleton singleton)
+    void ApplySaveRestoreState(ref SystemState state, Singleton singleton)
     {
-        NativeArray<Entity> entities = _characterQuery.ToEntityArray(Allocator.TempJob);
+        NativeArray<Entity> entities = m_CharacterQuery.ToEntityArray(Allocator.TempJob);
         for (int i = 0; i < entities.Length; i++)
         {
             StressTestCharacterComponent character = state.EntityManager.GetComponentData<StressTestCharacterComponent>(entities[i]);
@@ -521,9 +517,9 @@ public partial struct StressTestManagerSystem : ISystem
     }
 
     [BurstCompile]
-    private void ApplyEnhancedGroundPrecision(ref SystemState state, Singleton singleton)
+    void ApplyEnhancedGroundPrecision(ref SystemState state, Singleton singleton)
     {
-        NativeArray<Entity> entities = _characterQuery.ToEntityArray(Allocator.TempJob);
+        NativeArray<Entity> entities = m_CharacterQuery.ToEntityArray(Allocator.TempJob);
         for (int i = 0; i < entities.Length; i++)
         {
             KinematicCharacterProperties characterProperties = state.EntityManager.GetComponentData<KinematicCharacterProperties>(entities[i]);

@@ -1,14 +1,9 @@
 using System;
-using System.Runtime.InteropServices;
 using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
-using Unity.Jobs;
-using Unity.Logging;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.VFX;
-using Random = Unity.Mathematics.Random;
 
 namespace OnlineFPS
 {
@@ -122,41 +117,41 @@ namespace OnlineFPS
     [UpdateInGroup(typeof(SimulationSystemGroup), OrderLast = true)]
     public partial struct VFXSystem : ISystem
     {
-        private int _spawnBatchId;
-        private int _requestsCountId;
-        private int _requestsBufferId;
+        int m_SpawnBatchId;
+        int m_RequestsCountId;
+        int m_RequestsBufferId;
 
-        private VFXManager<VFXSparksRequest> _sparksManager;
-        private VFXManager<VFXExplosionRequest> _explosionsManager;
+        VFXManager<VFXSparksRequest> m_SparksManager;
+        VFXManager<VFXExplosionRequest> m_ExplosionsManager;
 
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<GameWorldSystem.Singleton>();
 
             // Names to Ids
-            _spawnBatchId = Shader.PropertyToID("SpawnBatch");
-            _requestsCountId = Shader.PropertyToID("SpawnRequestsCount");
-            _requestsBufferId = Shader.PropertyToID("SpawnRequestsBuffer");
+            m_SpawnBatchId = Shader.PropertyToID("SpawnBatch");
+            m_RequestsCountId = Shader.PropertyToID("SpawnRequestsCount");
+            m_RequestsBufferId = Shader.PropertyToID("SpawnRequestsBuffer");
 
             // VFX managers
-            _sparksManager = new VFXManager<VFXSparksRequest>(GameManager.SparksCapacity);
-            _explosionsManager = new VFXManager<VFXExplosionRequest>(GameManager.ExplosionsCapacity);
+            m_SparksManager = new VFXManager<VFXSparksRequest>(GameManager.SparksCapacity);
+            m_ExplosionsManager = new VFXManager<VFXExplosionRequest>(GameManager.ExplosionsCapacity);
 
             // Singletons
             state.EntityManager.AddComponentData(state.EntityManager.CreateEntity(), new VFXSparksSingleton
             {
-                Manager = _sparksManager,
+                Manager = m_SparksManager,
             });
             state.EntityManager.AddComponentData(state.EntityManager.CreateEntity(), new VFXExplosionsSingleton
             {
-                Manager = _explosionsManager,
+                Manager = m_ExplosionsManager,
             });
         }
 
         public void OnDestroy(ref SystemState state)
         {
-            _sparksManager.Dispose();
-            _explosionsManager.Dispose();
+            m_SparksManager.Dispose();
+            m_ExplosionsManager.Dispose();
         }
 
         public void OnUpdate(ref SystemState state)
@@ -174,23 +169,23 @@ namespace OnlineFPS
             // Update managers
             float rateRatio = SystemAPI.Time.DeltaTime / Time.deltaTime;
 
-            _sparksManager.Update(
+            m_SparksManager.Update(
                 VFXReferences.SparksGraph,
                 ref VFXReferences.SparksRequestsBuffer,
                 shouldUploadVFXData,
                 rateRatio,
-                _spawnBatchId,
-                _requestsCountId,
-                _requestsBufferId);
+                m_SpawnBatchId,
+                m_RequestsCountId,
+                m_RequestsBufferId);
 
-            _explosionsManager.Update(
+            m_ExplosionsManager.Update(
                 VFXReferences.ExplosionsGraph,
                 ref VFXReferences.ExplosionsRequestsBuffer,
                 shouldUploadVFXData,
                 rateRatio,
-                _spawnBatchId,
-                _requestsCountId,
-                _requestsBufferId);
+                m_SpawnBatchId,
+                m_RequestsCountId,
+                m_RequestsBufferId);
         }
     }
 }

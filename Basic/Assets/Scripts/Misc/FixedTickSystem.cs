@@ -1,6 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
-using System.ComponentModel;
 using Unity.Burst;
 using Unity.Entities;
 using UnityEngine;
@@ -13,12 +10,6 @@ public partial struct FixedTickSystem : ISystem
     {
         public uint Tick;
     }
-
-    public void OnCreate(ref SystemState state)
-    { }
-
-    public void OnDestroy(ref SystemState state)
-    { }
 
     [BurstCompile]
     public void OnUpdate(ref SystemState state)

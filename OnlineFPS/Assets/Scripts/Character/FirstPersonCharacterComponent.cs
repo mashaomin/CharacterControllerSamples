@@ -1,11 +1,9 @@
 using System;
-using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
 using Unity.CharacterController;
 using Unity.NetCode;
-using UnityEngine.Serialization;
 
 namespace OnlineFPS
 {
@@ -38,15 +36,20 @@ namespace OnlineFPS
         public float ViewRollAmount;
         public float ViewRollSharpness;
 
-        [HideInInspector] [GhostField(Quantization = 1000, Smoothing = SmoothingAction.InterpolateAndExtrapolate)]
+        [HideInInspector]
+        [GhostField(Quantization = 1000, Smoothing = SmoothingAction.InterpolateAndExtrapolate)]
         public float CharacterYDegrees;
 
-        [HideInInspector] [GhostField(Quantization = 1000, Smoothing = SmoothingAction.InterpolateAndExtrapolate)]
+        [HideInInspector]
+        [GhostField(Quantization = 1000, Smoothing = SmoothingAction.InterpolateAndExtrapolate)]
         public float ViewPitchDegrees;
 
-        [HideInInspector] public quaternion ViewLocalRotation;
-        [HideInInspector] public float ViewRollDegrees;
-        [HideInInspector] public byte HasProcessedDeath;
+        [HideInInspector]
+        public quaternion ViewLocalRotation;
+        [HideInInspector]
+        public float ViewRollDegrees;
+        [HideInInspector]
+        public byte HasProcessedDeath;
 
         public static FirstPersonCharacterComponent GetDefault()
         {
@@ -70,9 +73,7 @@ namespace OnlineFPS
         }
     }
 
-    public struct CharacterInitialized : IComponentData, IEnableableComponent
-    {
-    }
+    public struct CharacterInitialized : IComponentData, IEnableableComponent { }
 
     [Serializable]
     public struct FirstPersonCharacterControl : IComponentData
@@ -92,6 +93,7 @@ namespace OnlineFPS
     [GhostComponent()]
     public struct OwningPlayer : IComponentData
     {
-        [GhostField()] public Entity Entity;
+        [GhostField()]
+        public Entity Entity;
     }
 }

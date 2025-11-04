@@ -1,7 +1,3 @@
-
-
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 namespace OnlineFPS
@@ -12,7 +8,7 @@ namespace OnlineFPS
 
         void Awake()
         {
-            Instance = GetComponent<UnityEngine.Camera>();
+            Instance = GetComponent<Camera>();
         }
     }
 }

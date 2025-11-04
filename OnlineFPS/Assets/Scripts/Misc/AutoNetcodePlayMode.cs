@@ -1,4 +1,3 @@
-using Unity.Logging;
 using UnityEngine;
 
 namespace OnlineFPS

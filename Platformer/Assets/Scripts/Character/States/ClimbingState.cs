@@ -11,14 +11,14 @@ public struct ClimbingState : IPlatformerCharacterState
 
     private bool _foundValidClimbSurface;
 
-    public void OnStateEnter(CharacterState previousState, ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterAspect aspect)
+    public void OnStateEnter(CharacterState previousState, ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterProcessor processor)
     {
-        ref PlatformerCharacterComponent character = ref aspect.Character.ValueRW;
-        ref KinematicCharacterBody characterBody = ref aspect.CharacterAspect.CharacterBody.ValueRW;
-        ref KinematicCharacterProperties characterProperties = ref aspect.CharacterAspect.CharacterProperties.ValueRW;
-        ref quaternion characterRotation = ref aspect.CharacterAspect.LocalTransform.ValueRW.Rotation;
+        ref PlatformerCharacterComponent character = ref processor.Character.ValueRW;
+        ref KinematicCharacterBody characterBody = ref processor.CharacterDataAccess.CharacterBody.ValueRW;
+        ref KinematicCharacterProperties characterProperties = ref processor.CharacterDataAccess.CharacterProperties.ValueRW;
+        ref quaternion characterRotation = ref processor.CharacterDataAccess.LocalTransform.ValueRW.Rotation;
         
-        aspect.SetCapsuleGeometry(character.ClimbingGeometry.ToCapsuleGeometry());
+        processor.SetCapsuleGeometry(character.ClimbingGeometry.ToCapsuleGeometry());
 
         characterProperties.EvaluateGrounding = false;
         characterProperties.DetectMovementCollisions = false;
@@ -28,30 +28,30 @@ public struct ClimbingState : IPlatformerCharacterState
         LastKnownClimbNormal = -MathUtilities.GetForwardFromRotation(characterRotation);
     }
 
-    public void OnStateExit(CharacterState nextState, ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterAspect aspect)
+    public void OnStateExit(CharacterState nextState, ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterProcessor processor)
     {
-        ref KinematicCharacterBody characterBody = ref aspect.CharacterAspect.CharacterBody.ValueRW;
-        ref KinematicCharacterProperties characterProperties = ref aspect.CharacterAspect.CharacterProperties.ValueRW;
+        ref KinematicCharacterBody characterBody = ref processor.CharacterDataAccess.CharacterBody.ValueRW;
+        ref KinematicCharacterProperties characterProperties = ref processor.CharacterDataAccess.CharacterProperties.ValueRW;
         
-        aspect.CharacterAspect.SetOrUpdateParentBody(ref baseContext, ref characterBody, default, default); 
+        KinematicCharacterUtilities.SetOrUpdateParentBody(ref baseContext, ref characterBody, default, default); 
         characterProperties.EvaluateGrounding = true;
         characterProperties.DetectMovementCollisions = true;
         characterProperties.DecollideFromOverlaps = true;
     }
 
-    public void OnStatePhysicsUpdate(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterAspect aspect)
+    public void OnStatePhysicsUpdate(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterProcessor processor)
     {
         float deltaTime = baseContext.Time.DeltaTime;
-        ref KinematicCharacterBody characterBody = ref aspect.CharacterAspect.CharacterBody.ValueRW;
-        ref PlatformerCharacterComponent character = ref aspect.Character.ValueRW;
-        ref PlatformerCharacterControl characterControl = ref aspect.CharacterControl.ValueRW;
-        ref float3 characterPosition = ref aspect.CharacterAspect.LocalTransform.ValueRW.Position;
+        ref KinematicCharacterBody characterBody = ref processor.CharacterDataAccess.CharacterBody.ValueRW;
+        ref PlatformerCharacterComponent character = ref processor.Character.ValueRW;
+        ref PlatformerCharacterControl characterControl = ref processor.CharacterControl.ValueRW;
+        ref float3 characterPosition = ref processor.CharacterDataAccess.LocalTransform.ValueRW.Position;
         
-        aspect.HandlePhysicsUpdatePhase1(ref context, ref baseContext, true, false);
+        processor.HandlePhysicsUpdatePhase1(ref context, ref baseContext, true, false);
 
         // Quad climbing surface detection raycasts
         _foundValidClimbSurface = false;
-        if (ClimbingDetection(ref context, ref baseContext, in aspect, true, out LastKnownClimbNormal, out DistanceHit closestClimbableHit, out DistanceHit closestUnclimbableHit))
+        if (ClimbingDetection(ref context, ref baseContext, in processor, true, out LastKnownClimbNormal, out DistanceHit closestClimbableHit, out DistanceHit closestUnclimbableHit))
         {
             _foundValidClimbSurface = true;
 
@@ -72,45 +72,45 @@ public struct ClimbingState : IPlatformerCharacterState
             characterBody.RelativeVelocity = MathUtilities.ProjectOnPlane(characterBody.RelativeVelocity, LastKnownClimbNormal);
 
             // Project velocity on non-climbable obstacles
-            if (aspect.CharacterAspect.VelocityProjectionHits.Length > 0)
+            if (processor.CharacterDataAccess.VelocityProjectionHits.Length > 0)
             {
                 bool tmpCharacterGrounded = false;
                 BasicHit tmpCharacterGroundHit = default;
-                aspect.ProjectVelocityOnHits(
+                processor.ProjectVelocityOnHits(
                     ref context,
                     ref baseContext,
                     ref characterBody.RelativeVelocity,
                     ref tmpCharacterGrounded,
                     ref tmpCharacterGroundHit,
-                    in aspect.CharacterAspect.VelocityProjectionHits,
+                    in processor.CharacterDataAccess.VelocityProjectionHits,
                     math.normalizesafe(characterBody.RelativeVelocity));
             }
             
             // Apply velocity to position
             characterPosition += characterBody.RelativeVelocity * baseContext.Time.DeltaTime;
             
-            aspect.CharacterAspect.SetOrUpdateParentBody(ref baseContext, ref characterBody, closestClimbableHit.Entity, closestClimbableHit.Position); 
+            KinematicCharacterUtilities.SetOrUpdateParentBody(ref baseContext, ref characterBody, closestClimbableHit.Entity, closestClimbableHit.Position); 
         }
         else
         {
-            aspect.CharacterAspect.SetOrUpdateParentBody(ref baseContext, ref characterBody, default, default); 
+            KinematicCharacterUtilities.SetOrUpdateParentBody(ref baseContext, ref characterBody, default, default); 
         }
         
-        aspect.HandlePhysicsUpdatePhase2(ref context, ref baseContext, false, false, false, false, true);
+        processor.HandlePhysicsUpdatePhase2(ref context, ref baseContext, false, false, false, false, true);
         
-        DetectTransitions(ref context, ref baseContext, in aspect);
+        DetectTransitions(ref context, ref baseContext, in processor);
     }
 
-    public void OnStateVariableUpdate(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterAspect aspect)
+    public void OnStateVariableUpdate(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterProcessor processor)
     {
         float deltaTime = baseContext.Time.DeltaTime;
-        ref KinematicCharacterBody characterBody = ref aspect.CharacterAspect.CharacterBody.ValueRW;
-        ref PlatformerCharacterComponent character = ref aspect.Character.ValueRW;
-        ref PlatformerCharacterControl characterControl = ref aspect.CharacterControl.ValueRW;
-        ref float3 characterPosition = ref aspect.CharacterAspect.LocalTransform.ValueRW.Position;
-        ref quaternion characterRotation = ref aspect.CharacterAspect.LocalTransform.ValueRW.Rotation;
+        ref KinematicCharacterBody characterBody = ref processor.CharacterDataAccess.CharacterBody.ValueRW;
+        ref PlatformerCharacterComponent character = ref processor.Character.ValueRW;
+        ref PlatformerCharacterControl characterControl = ref processor.CharacterControl.ValueRW;
+        ref float3 characterPosition = ref processor.CharacterDataAccess.LocalTransform.ValueRW.Position;
+        ref quaternion characterRotation = ref processor.CharacterDataAccess.LocalTransform.ValueRW.Rotation;
 
-        float3 geometryCenter = GetGeometryCenter(in aspect);
+        float3 geometryCenter = GetGeometryCenter(in processor);
         
         // Rotate
         float3 targetCharacterUp = characterBody.GroundingUp;
@@ -146,38 +146,38 @@ public struct ClimbingState : IPlatformerCharacterState
         }
     }
 
-    public bool DetectTransitions(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterAspect aspect)
+    public bool DetectTransitions(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterProcessor processor)
     {
-        ref PlatformerCharacterControl characterControl = ref aspect.CharacterControl.ValueRW;
-        ref PlatformerCharacterStateMachine stateMachine = ref aspect.StateMachine.ValueRW;
+        ref PlatformerCharacterControl characterControl = ref processor.CharacterControl.ValueRW;
+        ref PlatformerCharacterStateMachine stateMachine = ref processor.StateMachine.ValueRW;
         
         if (!_foundValidClimbSurface || characterControl.JumpPressed || characterControl.DashPressed || characterControl.ClimbPressed)
         {
-            stateMachine.TransitionToState(CharacterState.AirMove, ref context, ref baseContext, in aspect);
+            stateMachine.TransitionToState(CharacterState.AirMove, ref context, ref baseContext, in processor);
             return true;
         }
 
-        return aspect.DetectGlobalTransitions(ref context, ref baseContext);
+        return processor.DetectGlobalTransitions(ref context, ref baseContext);
     }
 
-    public static float3 GetGeometryCenter(in PlatformerCharacterAspect aspect)
+    public static float3 GetGeometryCenter(in PlatformerCharacterProcessor processor)
     {
-        float3 characterPosition = aspect.CharacterAspect.LocalTransform.ValueRW.Position;
-        quaternion characterRotation = aspect.CharacterAspect.LocalTransform.ValueRW.Rotation;
-        PlatformerCharacterComponent character = aspect.Character.ValueRW;
+        float3 characterPosition = processor.CharacterDataAccess.LocalTransform.ValueRW.Position;
+        quaternion characterRotation = processor.CharacterDataAccess.LocalTransform.ValueRW.Rotation;
+        PlatformerCharacterComponent character = processor.Character.ValueRW;
         
         RigidTransform characterTransform = new RigidTransform(characterRotation, characterPosition);
         float3 geometryCenter = math.transform(characterTransform, math.up() * character.ClimbingGeometry.Height * 0.5f);
         return geometryCenter;
     }
 
-    public static bool CanStartClimbing(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterAspect aspect)
+    public static bool CanStartClimbing(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterProcessor processor)
     {
-        ref PlatformerCharacterComponent character = ref aspect.Character.ValueRW;
+        ref PlatformerCharacterComponent character = ref processor.Character.ValueRW;
         
-        aspect.SetCapsuleGeometry(character.ClimbingGeometry.ToCapsuleGeometry());
-        bool canStart = ClimbingDetection(ref context, ref baseContext, in aspect, false, out float3 avgClimbingSurfaceNormal, out DistanceHit closestClimbableHit, out DistanceHit closestUnclimbableHit);
-        aspect.SetCapsuleGeometry(character.StandingGeometry.ToCapsuleGeometry());
+        processor.SetCapsuleGeometry(character.ClimbingGeometry.ToCapsuleGeometry());
+        bool canStart = ClimbingDetection(ref context, ref baseContext, in processor, false, out float3 avgClimbingSurfaceNormal, out DistanceHit closestClimbableHit, out DistanceHit closestUnclimbableHit);
+        processor.SetCapsuleGeometry(character.StandingGeometry.ToCapsuleGeometry());
 
         return canStart;
     }
@@ -185,7 +185,7 @@ public struct ClimbingState : IPlatformerCharacterState
     public static bool ClimbingDetection(
         ref PlatformerCharacterUpdateContext context,
         ref KinematicCharacterUpdateContext baseContext,
-        in PlatformerCharacterAspect aspect,
+        in PlatformerCharacterProcessor processor,
         bool addUnclimbableHitsAsVelocityProjectionHits,
         out float3 avgClimbingSurfaceNormal,
         out DistanceHit closestClimbableHit,
@@ -196,16 +196,18 @@ public struct ClimbingState : IPlatformerCharacterState
         closestClimbableHit = default;
         closestUnclimbableHit = default;
 
-        ref KinematicCharacterProperties characterProperties = ref aspect.CharacterAspect.CharacterProperties.ValueRW;
-        ref PlatformerCharacterComponent character = ref aspect.Character.ValueRW;
-        ref float3 characterPosition = ref aspect.CharacterAspect.LocalTransform.ValueRW.Position;
-        ref quaternion characterRotation = ref aspect.CharacterAspect.LocalTransform.ValueRW.Rotation;
-        float characterScale = aspect.CharacterAspect.LocalTransform.ValueRO.Scale;
+        ref KinematicCharacterProperties characterProperties = ref processor.CharacterDataAccess.CharacterProperties.ValueRW;
+        ref PlatformerCharacterComponent character = ref processor.Character.ValueRW;
+        ref float3 characterPosition = ref processor.CharacterDataAccess.LocalTransform.ValueRW.Position;
+        ref quaternion characterRotation = ref processor.CharacterDataAccess.LocalTransform.ValueRW.Rotation;
+        float characterScale = processor.CharacterDataAccess.LocalTransform.ValueRO.Scale;
 
-        aspect.CharacterAspect.CalculateDistanceAllCollisions(
-            in aspect,
+        KinematicCharacterUtilities.CalculateDistanceAllCollisions(
+            in processor,
             ref context,
             ref baseContext,
+            processor.CharacterDataAccess.PhysicsCollider.ValueRO,
+            processor.CharacterDataAccess.CharacterEntity,
             characterPosition,
             characterRotation,
             characterScale,
@@ -231,7 +233,7 @@ public struct ClimbingState : IPlatformerCharacterState
                 }
 
                 // Ignore back faces
-                if (math.dot(faceNormal, tmpHit.SurfaceNormal) > KinematicCharacterAspect.Constants.DotProductSimilarityEpsilon)
+                if (math.dot(faceNormal, tmpHit.SurfaceNormal) > KinematicCharacterUtilities.Constants.DotProductSimilarityEpsilon)
                 {
                     bool isClimbable = false;
                     if (character.ClimbableTag.Value > CustomPhysicsBodyTags.Nothing.Value)
@@ -263,7 +265,7 @@ public struct ClimbingState : IPlatformerCharacterState
                         if (addUnclimbableHitsAsVelocityProjectionHits)
                         {
                             KinematicVelocityProjectionHit velProjHit = new KinematicVelocityProjectionHit(new BasicHit(tmpHit), false);
-                            aspect.CharacterAspect.VelocityProjectionHits.Add(velProjHit);
+                            processor.CharacterDataAccess.VelocityProjectionHits.Add(velProjHit);
                         }
                     }
                 }

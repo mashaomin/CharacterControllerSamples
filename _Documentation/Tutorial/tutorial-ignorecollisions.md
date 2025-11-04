@@ -1,7 +1,7 @@
 
 # Tutorial - Ignore Collisions Tag
 
-We will now make the character ignore all collisions with colliders that have a certain physics custom tag. 
+We will now make the character ignore all collisions with colliders that have a certain physics custom tag.
 
 For this section, we will need to import custom physics authoring components in order to be able to set custom tags on rigidbodies. Go to the package manager window, find the "Unity Physics" package, and go to the "Samples" tab of that package. In this window, import the "Custom Physics Authoring" sample.
 
@@ -26,20 +26,20 @@ public struct ThirdPersonCharacterComponent : IComponentData
 }
 ```
 
-Then, we will modify `ThirdPersonCharacterAspect.CanCollideWithHit` so that it also ignores collisions with colliders that have that physics tag. (You will have to add `using Unity.Physics.Authoring;` at the top of the file for this to work.)
+Then, we will modify `ThirdPersonCharacterProcessor.CanCollideWithHit` so that it also ignores collisions with colliders that have that physics tag. (You will have to add `using Unity.Physics.Authoring;` at the top of the file for this to work.)
 
 ```cs
-public readonly partial struct ThirdPersonCharacterAspect : IAspect, IKinematicCharacterProcessor<ThirdPersonCharacterUpdateContext>
+public readonly partial struct ThirdPersonCharacterProcessor : IKinematicCharacterProcessor<ThirdPersonCharacterUpdateContext>
 {
     // (...)
-    
+
     public bool CanCollideWithHit(
-        ref ThirdPersonCharacterUpdateContext context, 
+        ref ThirdPersonCharacterUpdateContext context,
         ref KinematicCharacterUpdateContext baseContext,
         in BasicHit hit)
     {
         ThirdPersonCharacterComponent characterComponent = CharacterComponent.ValueRO;
-        
+
         // First, see if we'd have to ignore based on the default implementation
         if (!PhysicsUtilities.IsCollidable(hit.Material))
         {
@@ -59,9 +59,9 @@ public readonly partial struct ThirdPersonCharacterAspect : IAspect, IKinematicC
 
 You can now set the proper ignored tag (tag 0) in your character authoring's inspector.
 
-Finally, you can press Play, and try to collide with the box marked with the ignored tag. You should go right through. 
+Finally, you can press Play, and try to collide with the box marked with the ignored tag. You should go right through.
 
 ![](../Images/tutorial_ignore_collisions.gif)
 
 
-Note: since the callbacks of the `ThirdPersonCharacterAspect` can potentially be called multiple times per character per frame, it is always a good idea to try to make their logic as inexpensive as possible. If you can, it is still better to ignore collisions with physics categories instead of by checking for a tag or component. But there are times when procedural collision filtering like this can come in very handy.
+Note: since the callbacks of the `ThirdPersonCharacterProcessor` can potentially be called multiple times per character per frame, it is always a good idea to try to make their logic as inexpensive as possible. If you can, it is still better to ignore collisions with physics categories instead of by checking for a tag or component. But there are times when procedural collision filtering like this can come in very handy.
