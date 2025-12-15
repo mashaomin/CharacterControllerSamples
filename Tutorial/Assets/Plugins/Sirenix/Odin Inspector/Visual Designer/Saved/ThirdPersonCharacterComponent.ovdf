@@ -1,0 +1,10 @@
+OVDF v1.0
+ThirdPersonCharacterComponent, Assembly-CSharp
+
+# RotationSharpness
++ [Sirenix.OdinInspector.LabelTextAttribute]
+	Text = "朝移动方向转向的插值锐度"
+
+# GroundMaxSpeed
++ [Sirenix.OdinInspector.LabelTextAttribute]
+	Text = "接地最大水平移动速度"
