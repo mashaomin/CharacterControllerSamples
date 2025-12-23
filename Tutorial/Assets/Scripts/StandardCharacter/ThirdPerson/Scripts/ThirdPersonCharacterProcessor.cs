@@ -21,6 +21,25 @@ public struct ThirdPersonCharacterUpdateContext
     }
 }
 
+/// <summary>
+/// 这是纯逻辑层，实现了 IKinematicCharacterProcessor 接口。它不直接由 ECS 运行，而是被 System 调用
+/// 封装了角色如何移动、如何处理碰撞、如何响应输入的具体算法
+///     1. PhysicsUpdate：固定步长的物理更新。
+///         处理核心移动逻辑：初始化 -> 父对象跟随 -> 接地检测 -> 速度控制（HandleVelocityControl） 
+///         -> 碰撞去穿透 -> 动量保持。这是角色“物理上”怎么动的代码。
+///     2. VariableUpdate：变步长更新（通常是每帧渲染前）
+///         处理平滑插值，比如角色旋转（为了视觉平滑，旋转通常在这里做，而不是在固定物理
+///     3. HandleVelocityControl：具体的业务逻辑，判断在地面怎么走、在空中怎么跳、怎么加速。
+///     4. Callbacks（如 IsGroundedOnHit, OnMovementHit）：定制物理交互细节（如：什么样的坡算地面、撞墙后是否滑行）
+/// 
+/// 接口：IKinematicCharacterProcessor
+///     Up：头朝哪？
+///     CanCollide：要不要撞？
+///     IsGrounded：能不能站？
+///     OnMovementHit：撞了怎么走？
+///     ProjectVelocity：被夹住怎么滑？
+///     OverrideMass：推不推得动？
+/// </summary>
 public struct ThirdPersonCharacterProcessor : IKinematicCharacterProcessor<ThirdPersonCharacterUpdateContext>
 {
     public KinematicCharacterDataAccess CharacterDataAccess;
@@ -34,6 +53,7 @@ public struct ThirdPersonCharacterProcessor : IKinematicCharacterProcessor<Third
         ref float3 characterPosition = ref CharacterDataAccess.LocalTransform.ValueRW.Position;
 
         // First phase of default character update
+        // 在更新开始时，清空并初始化角色的核心数据和缓冲区。
         KinematicCharacterUtilities.Update_Initialize(
             in this,
             ref context,
@@ -44,6 +64,7 @@ public struct ThirdPersonCharacterProcessor : IKinematicCharacterProcessor<Third
             CharacterDataAccess.VelocityProjectionHits,
             baseContext.Time.DeltaTime);
 
+        // 如果角色被分配了 ParentEntity，则根据该父实体的运动来移动角色。
         KinematicCharacterUtilities.Update_ParentMovement(
             in this,
             ref context,
@@ -56,6 +77,7 @@ public struct ThirdPersonCharacterProcessor : IKinematicCharacterProcessor<Third
             ref characterPosition,
             characterBody.WasGroundedBeforeCharacterUpdate);
 
+        // 检测角色是否处于接地状态。
         KinematicCharacterUtilities.Update_Grounding(
             in this,
             ref context,
@@ -70,9 +92,11 @@ public struct ThirdPersonCharacterProcessor : IKinematicCharacterProcessor<Third
             ref characterPosition);
 
         // Update desired character velocity after grounding was detected, but before doing additional processing that depends on velocity
+        // 根据传入方法的 BasicStepAndSlopeHandlingParameters 定义，取消角色的接地状态。例如：当角色正朝着悬崖边缘前进时，取消其接地状态。
         HandleVelocityControl(ref context, ref baseContext);
 
         // Second phase of default character update
+        // 根据传入方法的 BasicStepAndSlopeHandlingParameters 定义，取消角色的接地状态。例如：当角色正朝着悬崖边缘前进时，取消其接地状态。
         KinematicCharacterUtilities.Update_PreventGroundingFromFutureSlopeChange(
             in this,
             ref context,
@@ -83,6 +107,7 @@ public struct ThirdPersonCharacterProcessor : IKinematicCharacterProcessor<Third
             CharacterDataAccess.PhysicsCollider.ValueRO,
             in characterComponent.StepAndSlopeHandling);
 
+        // 如果当前地面实体是动态实体（dynamic），则对其施加一个持续的力。
         KinematicCharacterUtilities.Update_GroundPushing(
             in this,
             ref context,
@@ -93,6 +118,7 @@ public struct ThirdPersonCharacterProcessor : IKinematicCharacterProcessor<Third
             CharacterDataAccess.DeferredImpulsesBuffer,
             characterComponent.Gravity);
 
+        // 根据角色速度移动角色，并解决碰撞（去穿透）。
         KinematicCharacterUtilities.Update_MovementAndDecollisions(
             in this,
             ref context,
@@ -107,15 +133,18 @@ public struct ThirdPersonCharacterProcessor : IKinematicCharacterProcessor<Third
             CharacterDataAccess.DeferredImpulsesBuffer,
             ref characterPosition);
 
+        // 检测有效的移动平台实体，并将其分配为角色的 ParentEntity。更多信息请参阅 Parenting（父子关系）文档
         KinematicCharacterUtilities.Update_MovingPlatformDetection(
             ref baseContext,
             ref characterBody);
 
+        // 当角色与父实体分离时，保留角色的速度动量
         KinematicCharacterUtilities.Update_ParentMomentum(
             ref baseContext,
             ref characterBody,
             CharacterDataAccess.LocalTransform.ValueRO.Position);
 
+        // 将具有 Enter、Exit 或 Stay 状态的角色碰撞结果写入角色实体上的 StatefulKinematicCharacterHit 缓冲区
         KinematicCharacterUtilities.Update_ProcessStatefulCharacterHits(
             CharacterDataAccess.CharacterHitsBuffer,
             CharacterDataAccess.StatefulHitsBuffer);

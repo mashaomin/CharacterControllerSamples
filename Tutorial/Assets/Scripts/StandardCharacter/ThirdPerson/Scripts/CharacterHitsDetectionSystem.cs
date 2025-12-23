@@ -17,7 +17,7 @@ public partial class CharacterHitsDetectionSystem : SystemBase
                 KinematicCharacterHit hit = hitsBuffer[i];
                 if(!hit.IsGroundedOnHit)
                 {
-                    // UnityEngine.Debug.Log($"Detected an ungrounded hit {hit.Entity.Index}");
+                     UnityEngine.Debug.Log($"Detected an ungrounded hit {hit.Entity.Index}");
                 }
             }
         }
@@ -30,11 +30,11 @@ public partial class CharacterHitsDetectionSystem : SystemBase
                 StatefulKinematicCharacterHit hit = statefulHitsBuffer[i];
                 if (hit.State == CharacterHitState.Enter)
                 {
-                    // UnityEngine.Debug.Log($"Entered new hit {hit.Hit.Entity.Index}");
+                     UnityEngine.Debug.Log($"Entered new hit {hit.Hit.Entity.Index}");
                 }
                 else if (hit.State == CharacterHitState.Exit)
                 {
-                    // UnityEngine.Debug.Log($"Exited a hit {hit.Hit.Entity.Index}");
+                     UnityEngine.Debug.Log($"Exited a hit {hit.Hit.Entity.Index}");
                 }
             }
         }

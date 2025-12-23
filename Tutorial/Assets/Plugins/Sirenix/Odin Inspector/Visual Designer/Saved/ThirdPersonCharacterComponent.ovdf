@@ -8,3 +8,43 @@ ThirdPersonCharacterComponent, Assembly-CSharp
 # GroundMaxSpeed
 + [Sirenix.OdinInspector.LabelTextAttribute]
 	Text = "接地最大水平移动速度"
+
+# AirAcceleration
++ [Sirenix.OdinInspector.LabelTextAttribute]
+	Text = "空中加速度大小"
+	
+# AirMaxSpeed
++ [Sirenix.OdinInspector.LabelTextAttribute]
+	Text = "空中最大水平速度上限"
+	
+# AirDrag
++ [Sirenix.OdinInspector.LabelTextAttribute]
+	Text = "空中阻力系数（速度衰减）"
+	
+# JumpSpeed
++ [Sirenix.OdinInspector.LabelTextAttribute]
+	Text = "起跳初速度（沿角色“上”方向）"
+	
+# MaxAirJumps
++ [Sirenix.OdinInspector.LabelTextAttribute]
+	Text = "可额外空中跳的次数"
+	
+# Gravity
++ [Sirenix.OdinInspector.LabelTextAttribute]
+	Text = "重力加速度"
+	
+# PreventAirAccelerationAgainstUngroundedHits
++ [Sirenix.OdinInspector.LabelTextAttribute]
+	Text = "空中朝非接地表面移动时，若会撞上则取消该次加速，防止“空中爬坡"
+		
+# StepAndSlopeHandling
++ [Sirenix.OdinInspector.LabelTextAttribute]
+	Text = "台阶/坡度处理参数（高度、坡度角、约束到地面平面等"
+		
+# IgnoredPhysicsTags
++ [Sirenix.OdinInspector.LabelTextAttribute]
+	Text = "忽略哪些物理标签的碰撞（通常用于筛掉特定交互）。"
+	
+# CurrentAirJumps
++ [Sirenix.OdinInspector.LabelTextAttribute]
+	Text = "运行时计数，当前已用掉的空中跳次数（隐藏字段"

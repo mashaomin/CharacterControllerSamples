@@ -105,6 +105,7 @@ public struct PlatformerCharacterProcessor : IKinematicCharacterProcessor<Platfo
         stateMachine.OnStateVariableUpdate(stateMachine.CurrentState, ref context, ref baseContext, in this);
     }
 
+    // 通常包含那些“优先级极高”或者“环境强制”的转换。
     public bool DetectGlobalTransitions(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext)
     {
         ref PlatformerCharacterStateMachine stateMachine = ref StateMachine.ValueRW;
@@ -147,7 +148,10 @@ public struct PlatformerCharacterProcessor : IKinematicCharacterProcessor<Platfo
     {
         ref KinematicCharacterBody characterBody = ref CharacterDataAccess.CharacterBody.ValueRW;
         ref float3 characterPosition = ref CharacterDataAccess.LocalTransform.ValueRW.Position;
-        
+
+        // 1. 初始化 (Update_Initialize)
+        //    清空这一帧的碰撞缓存、重置临时速度变量、更新时间增量等。
+        //    这是 "擦黑板"，为新一帧的计算做准备。
         KinematicCharacterUtilities.Update_Initialize(
             in this,
             ref context,
@@ -158,6 +162,10 @@ public struct PlatformerCharacterProcessor : IKinematicCharacterProcessor<Platfo
             CharacterDataAccess.VelocityProjectionHits,
             baseContext.Time.DeltaTime);
 
+        // 2. 父物体移动 (Update_ParentMovement) [可选]
+        //    如果 allowParentHandling = true，且角色站在移动平台（父物体）上：
+        //    计算父物体这一帧移动了多少，并把这个位移直接加到角色身上。
+        //    这保证了你站在电梯上时，电梯动你也会跟着动。
         if (allowParentHandling)
         {
             KinematicCharacterUtilities.Update_ParentMovement(
@@ -172,6 +180,11 @@ public struct PlatformerCharacterProcessor : IKinematicCharacterProcessor<Platfo
                 ref characterPosition,
                 characterBody.WasGroundedBeforeCharacterUpdate);
         }
+
+        // 3. 地面检测 (Update_Grounding) [可选]
+        //    如果 allowGroundingDetection = true：
+        //    发射射线检测脚下有没有地。更新 IsGrounded 状态、GroundHit 信息。
+        //    这是决定你这一帧是在 "地面" 还是 "空中" 的基础。
         if (allowGroundingDetection)
         {
             KinematicCharacterUtilities.Update_Grounding(
@@ -192,17 +205,17 @@ public struct PlatformerCharacterProcessor : IKinematicCharacterProcessor<Platfo
     public void HandlePhysicsUpdatePhase2(
         ref PlatformerCharacterUpdateContext context, 
         ref KinematicCharacterUpdateContext baseContext,
-        bool allowPreventGroundingFromFutureSlopeChange,
-        bool allowGroundingPushing,
-        bool allowMovementAndDecollisions,
-        bool allowMovingPlatformDetection,
-        bool allowParentHandling)
+        bool allowPreventGroundingFromFutureSlopeChange,        
+        bool allowGroundingPushing,                             
+        bool allowMovementAndDecollisions,                      
+        bool allowMovingPlatformDetection,                      
+        bool allowParentHandling)                               
     {
         ref PlatformerCharacterComponent character = ref Character.ValueRW;
         ref KinematicCharacterBody characterBody = ref CharacterDataAccess.CharacterBody.ValueRW;
         ref float3 characterPosition = ref CharacterDataAccess.LocalTransform.ValueRW.Position;
         CustomGravity customGravity = CustomGravity.ValueRO;
-
+        // 是否允许预测并防止“下坡飞出”
         if (allowPreventGroundingFromFutureSlopeChange)
         {
             KinematicCharacterUtilities.Update_PreventGroundingFromFutureSlopeChange(
@@ -215,6 +228,7 @@ public struct PlatformerCharacterProcessor : IKinematicCharacterProcessor<Platfo
                 CharacterDataAccess.PhysicsCollider.ValueRO,
                 in character.StepAndSlopeHandling);
         }
+        // 是否允许“地面吸附”（利用重力把你按在地上）
         if (allowGroundingPushing)
         {
             KinematicCharacterUtilities.Update_GroundPushing(
@@ -227,6 +241,7 @@ public struct PlatformerCharacterProcessor : IKinematicCharacterProcessor<Platfo
                 CharacterDataAccess.DeferredImpulsesBuffer,
                 customGravity.Gravity);
         }
+        // 是否允许实际移动和处理穿透（核心！）
         if (allowMovementAndDecollisions)
         {
             KinematicCharacterUtilities.Update_MovementAndDecollisions(
@@ -243,12 +258,14 @@ public struct PlatformerCharacterProcessor : IKinematicCharacterProcessor<Platfo
                 CharacterDataAccess.DeferredImpulsesBuffer,
                 ref characterPosition);
         }
+        // 是否允许检测你是否站在移动平台上
         if (allowMovingPlatformDetection)
         {
             KinematicCharacterUtilities.Update_MovingPlatformDetection(
                 ref baseContext,
                 ref characterBody);
         }
+        // 是否允许处理父物体动量（比如从移动平台跳出去保留惯性）
         if (allowParentHandling)
         {
             KinematicCharacterUtilities.Update_ParentMomentum(

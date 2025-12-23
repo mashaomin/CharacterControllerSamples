@@ -87,6 +87,7 @@ public struct GroundMoveState : IPlatformerCharacterState
         character.IsOnStickySurface = PhysicsUtilities.HasPhysicsTag(in baseContext.PhysicsWorld, characterBody.GroundHit.RigidBodyIndex, character.StickySurfaceTag);
         if (character.IsOnStickySurface)
         {
+            // 这是一个工具函数，用于平滑地旋转角色，使其“头顶”指向指定的目标方向
             CharacterControlUtilities.SlerpCharacterUpTowardsDirection(ref characterRotation, deltaTime, characterBody.GroundHit.Normal, character.UpOrientationAdaptationSharpness);
         }
         else

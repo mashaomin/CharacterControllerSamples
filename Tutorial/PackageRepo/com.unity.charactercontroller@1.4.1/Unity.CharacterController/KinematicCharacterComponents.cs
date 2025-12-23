@@ -39,10 +39,12 @@ namespace Unity.CharacterController
         [Header("接地")]
         public bool EvaluateGrounding;
         /// <summary>
+        /// true
         /// 在地面下方一定距离内自动贴地，避免从台阶/斜坡微微“浮空”。
         /// </summary>
         public bool SnapToGround;
         /// <summary>
+        /// 0.5f
         /// 贴地射线的最大距离。示例：楼梯台阶较高时可稍微增大。
         /// </summary>
         public float GroundSnappingDistance;
@@ -52,16 +54,19 @@ namespace Unity.CharacterController
         /// </summary>
         public bool EnhancedGroundPrecision;
         /// <summary>
+        /// 45度
         /// 可视为已接地的最大坡度。示例：设为 45°，更陡的坡会被判定为未接地并滑落。
         /// </summary>
         public float MaxGroundedSlopeAngle;
 
         /// <summary>
+        /// true
         /// 基于速度的碰撞体 cast（防穿透）。几乎总是保持开启
         /// </summary>
         [Header("碰撞")]
         public bool DetectMovementCollisions;
         /// <summary>
+        /// true
         /// 处理初始或过程中的重叠（推出去）
         /// </summary>
         public bool DecollideFromOverlaps;

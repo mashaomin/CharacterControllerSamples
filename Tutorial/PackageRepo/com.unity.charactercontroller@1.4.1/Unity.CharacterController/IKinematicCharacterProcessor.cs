@@ -1,4 +1,5 @@
 ﻿using System;
+
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Physics;
@@ -6,12 +7,23 @@ using Unity.Physics;
 namespace Unity.CharacterController
 {
     /// <summary>
-    /// Interface implemented by structs meant to be passed as parameter to various character update steps in order to customize internal character update logic.
+    /// 接口：IKinematicCharacterProcessor
+    ///     Up：头朝哪？
+    ///     CanCollide：要不要撞？
+    ///     IsGrounded：能不能站？
+    ///     OnMovementHit：撞了怎么走？
+    ///     ProjectVelocity：被夹住怎么滑？
+    ///     OverrideMass：推不推得动？
+    /// Interface implemented by structs meant to be passed as parameter to various character update steps in 
+    /// order to customize internal character update logic.
     /// </summary>
     /// <typeparam name="C"> The type of the character "context" struct created by the user </typeparam>
     public interface IKinematicCharacterProcessor<C> where C : unmanaged
     {
         /// <summary>
+        /// 决定角色当前的“头顶朝哪”
+        /// 普通角色：直接用 math.up() 或 transform 的 up，表示永远头朝天。
+        /// 你需要在这里设置 characterBody.GroundingUp
         /// Requests that the grounding up direction should be updated.
         /// </summary>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
@@ -21,6 +33,11 @@ namespace Unity.CharacterController
             ref KinematicCharacterUpdateContext baseContext);
 
         /// <summary>
+        /// 物理层已经检测到了碰撞，这里决定逻辑上要不要穿过去
+        /// 场景:
+        ///     穿透队友：如果 hit 是队友实体，返回 false，直接穿过去
+        ///     忽略特定物体：比如地上的小草是物理实体，但你想直接走过去。
+        /// 返回值：true = 发生物理碰撞（挡住）；false = 忽略碰撞（穿透）。
         /// Determines if a hit can be collided with or not.
         /// </summary>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
@@ -33,7 +50,12 @@ namespace Unity.CharacterController
             in BasicHit hit);
 
         /// <summary>
-        /// Determines if the character can be grounded the hit or not.
+        /// 判定脚下的这个碰撞点，能不能算作“地面”。
+        /// 场景：
+        ///     坡度限制：这是最常用的。如果 hit.Normal 和 Up 的夹角超过 60 度，返回 false，角色就会判定为未接地并滑下来。
+        ///     特殊表面：比如踩在“油面”或“弹力网”上，强制判定为不可站立。
+        ///  参数 groundingEvaluationType：告诉你当前是在做哪种检查（是 Step 判定还是普通的 Ground 判定），
+        ///  通常传给 KinematicCharacterUtilities.Default_IsGroundedOnHit 即可
         /// </summary>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
         /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param>
@@ -47,7 +69,13 @@ namespace Unity.CharacterController
             int groundingEvaluationType);
 
         /// <summary>
-        /// Determines what happens when the character detects a hit during its movement phase.
+        /// 角色在移动过程中撞到了东西，决定怎么处理剩余的位移。
+        /// 场景：
+        ///     普通滑行：撞墙后，把剩余的速度沿着墙面投射，让角色顺着墙滑行（默认行为）。
+        ///     反弹：撞到弹球板，把剩余位移反向反射。
+        ///     攀爬/吸附：撞墙后直接停住并开始攀爬逻辑。
+        ///     上台阶（Step Handling）：在这里检测这是否是个小台阶，如果是，把角色抬上去。
+        /// 重要参数：remainingMovementDirection 和 remainingMovementLength。你可以修改它们来改变角色撞墙后的走向
         /// </summary>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
         /// <param name="baseContext"> The built-in context struct holding global data meant to be accessed during the character update </param>
