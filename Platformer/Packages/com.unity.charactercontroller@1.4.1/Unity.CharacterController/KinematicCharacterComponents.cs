@@ -151,6 +151,9 @@ namespace Unity.CharacterController
     }
 
     /// <summary>
+    /// 定义了物理行为的参数。
+    ///     比如是否允许吸附地面（防止下坡飞出去）
+    ///     比如是否开启防穿透
     /// Component holding general properties for a kinematic character
     /// </summary>
     [Serializable]
@@ -256,6 +259,7 @@ namespace Unity.CharacterController
     }
 
     /// <summary>
+    /// 运行时状态
     /// A component holding the transient data (data that gets modified during the character update) of the character
     /// </summary>
     [Serializable]
@@ -418,6 +422,7 @@ namespace Unity.CharacterController
     }
 
     /// <summary>
+    /// 检测到的角色命中的数据
     /// Data representing a detected character hit
     /// </summary>
     [Serializable]

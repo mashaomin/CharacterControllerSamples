@@ -6,6 +6,7 @@ using Unity.Physics;
 namespace Unity.CharacterController
 {
     /// <summary>
+    /// KCC的扩展点
     /// Interface implemented by structs meant to be passed as parameter to various character update steps in order to customize internal character update logic.
     /// </summary>
     /// <typeparam name="C"> The type of the character "context" struct created by the user </typeparam>
@@ -33,6 +34,7 @@ namespace Unity.CharacterController
             in BasicHit hit);
 
         /// <summary>
+        /// 即使射线打到了东西，算不算“地面”？
         /// Determines if the character can be grounded the hit or not.
         /// </summary>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
@@ -47,6 +49,8 @@ namespace Unity.CharacterController
             int groundingEvaluationType);
 
         /// <summary>
+        /// 当角色移动撞到东西时调用
+        ///     默认是“滑过去”，你可以改成“反弹”（弹珠台）或“爬上去”（跑酷）
         /// Determines what happens when the character detects a hit during its movement phase.
         /// </summary>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>

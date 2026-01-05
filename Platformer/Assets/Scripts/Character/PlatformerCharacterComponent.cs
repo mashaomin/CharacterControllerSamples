@@ -149,16 +149,16 @@ public struct PlatformerCharacterControl : IComponentData
 {
     public float3 MoveVector;
     
-    public bool JumpHeld;
-    public bool RollHeld;
-    public bool SprintHeld;
-    
-    public bool JumpPressed;
-    public bool DashPressed;
-    public bool CrouchPressed;
-    public bool RopePressed;
-    public bool ClimbPressed;
-    public bool FlyNoCollisionsPressed;
+    public bool JumpHeld;                   // 用于：按住跳跃键跳得更高（Variable Jump Height）。
+    public bool RollHeld;                   // 用于：按住翻滚键保持滚动状态，或者进入翻滚模式。
+    public bool SprintHeld;                 // 用于：按住 Shift 加速跑。 
+
+    public bool JumpPressed;                // 触发：从地面 -> 空中。
+    public bool DashPressed;                // 触发：瞬间冲刺（Dash）。
+    public bool CrouchPressed;              // 触发：切换到蹲下姿态。
+    public bool RopePressed;                // 触发：发射钩爪。
+    public bool ClimbPressed;               // 触发：吸附到墙上开始攀爬。
+    public bool FlyNoCollisionsPressed;     // 触发：调试模式/上帝模式切换。
 }
 
 public struct PlatformerCharacterInitialized : IComponentData

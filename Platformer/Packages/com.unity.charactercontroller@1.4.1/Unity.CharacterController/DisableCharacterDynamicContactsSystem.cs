@@ -13,6 +13,16 @@ namespace Unity.CharacterController
     { }
 
     /// <summary>
+    /// 现象：KCC 是通过代码改坐标移动的（Kinematic），但你身上挂了一个 Collider。
+    ///     如果你撞到了一个木箱子（Dynamic Rigidbody），物理引擎会觉得“两个刚体重叠了！”，然后试图用巨大的力把箱子弹飞，或者把你弹飞。
+    ///     
+    /// 解决：这个 System 实际上是一个 "过滤器"。
+    ///     它在物理引擎计算碰撞之前运行。
+    ///     它遍历所有的碰撞对（Contacts）。
+    ///     如果发现：A 是 Character && B 是 Dynamic Body。
+    ///     它会把这个碰撞对 Disable 掉（JacobianFlags.Disabled）。
+    ///     
+    /// 结果：物理引擎完全忽略你和箱子的碰撞。
     /// System scheduling a job that disables contacts between dynamic characters and dynamic colliders
     /// </summary>
     [UpdateInGroup(typeof(PhysicsSimulationGroup))]

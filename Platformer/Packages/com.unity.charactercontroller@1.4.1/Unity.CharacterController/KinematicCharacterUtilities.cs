@@ -194,6 +194,11 @@ namespace Unity.CharacterController
     }
 
     /// <summary>
+    /// 1. Collide and Slide 算法 (Update_MovementAndDecollisions)
+    /// 2. Ground Snapping (Update_GroundPushing)
+    ///     当你快速跑下坡时，物理惯性会让你飞出去这个函数会强制把你“按”在斜坡上，保证手感平滑
+    /// 3. Moving Platform Support (Update_ParentMovement)
+    ///     自动处理父物体（电梯）的位移、旋转。
     /// Collection of utility functions for characters
     /// </summary>
     public static class KinematicCharacterUtilities

@@ -72,6 +72,7 @@ namespace Unity.CharacterController
         }
 
         /// <summary>
+        /// 封装了这套“只控制水平推力，不干扰垂直重力，且带速度限制”的数学公式。
         /// Handles updating character velocity for standard accelerated air movement
         /// </summary>
         /// <param name="velocity"> Current character velocity </param>

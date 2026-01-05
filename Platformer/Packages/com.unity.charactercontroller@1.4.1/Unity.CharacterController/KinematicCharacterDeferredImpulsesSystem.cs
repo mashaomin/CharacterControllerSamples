@@ -8,6 +8,16 @@ using Unity.Mathematics;
 namespace Unity.CharacterController
 {
     /// <summary>
+    /// 现象：
+    ///     你有 1000 个角色。它们是并行（Parallel）运行的。
+    ///     角色 A 撞到了 角色 B，A 想给 B 一个推力。
+    ///     如果在 A 的线程里直接改 B 的速度 -> 报错！因为 B 可能正在自己的线程里改自己的速度。
+    /// 
+    /// 解决：延迟处理（Deferred Pattern）。
+    ///     角色 A 撞到 B，不直接推 B。
+    ///     而是往一个 DeferredImpulsesBuffer（小纸条）里写：“A 想要推 B 一下”。
+    ///     等所有角色都跑完物理逻辑后，这个 System 统一运行。
+    ///     它读取所有的小纸条，然后安全地、单线程（或无冲突并行）地把推力应用到 B 身上。
     /// Handles applying impulses that were detected during the character update
     /// </summary>
     [UpdateInGroup(typeof(KinematicCharacterPhysicsUpdateGroup), OrderLast = true)]
