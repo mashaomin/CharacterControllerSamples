@@ -159,68 +159,123 @@ namespace Unity.CharacterController
     [Serializable]
     public struct KinematicCharacterProperties : IComponentData
     {
+        #region 地面处理 (Grounding)
         /// <summary>
-        /// Enables detecting ground and evaluating grounding for each hit
+        /// 是否检测脚下的地面
+        ///     每帧发射射线检测地面
         /// </summary>
         public bool EvaluateGrounding;
+
         /// <summary>
-        /// Enables snapping to the ground surface below the character
+        /// 下坡吸附。
+        ///     如果你跑得很快，物理惯性会让你飞出斜坡。开启这个，系统会强制把你“拽”回地面
         /// </summary>
         public bool SnapToGround;
+
         /// <summary>
-        /// Distance to snap to ground, if SnapToGround is enabled
+        /// 手感调节器
+        /// 通常这个值应该设置为 略大于你每帧下落最大距离 或者 台阶高度。
+        /// 推荐值：0.3 到 0.5 米（假设角色身高 2 米）。
+        /// 
+        /// 核心作用：解决“下坡飞出”问题
+        /// 当 SnapToGround = true 时，KCC 会在每帧移动结束后执行一次特殊的检测：
+        ///     如果不吸附：角色因为水平速度很快，这一帧移动后，脚底已经悬空
+        ///     如果吸附：KCC 发现脚底悬空距离在 GroundSnappingDistance 之内，它会强制把角色瞬移（Snap）到地面上
         /// </summary>
         public float GroundSnappingDistance;
+
         /// <summary>
-        /// Computes a more precise distance to ground hits when the original query returned a distance of 0f due to imprecisions. Helps reduce jitter in certain situations, but can have an additional performance cost. It is recommended that you only enable this if you notice jitter problems when moving against angled walls
-        /// </summary>
-        public bool EnhancedGroundPrecision;
-        /// <summary>
-        /// The max slope angle that the character can be considered grounded on
+        /// 最大爬坡角度的 Dot 值
+        ///     如果你设置 45 度，那么 50 度的坡就会被视为“墙”，你站不上去，会滑下来
         /// </summary>
         public float MaxGroundedSlopeDotProduct;
 
+        #endregion
+        
+        #region 碰撞处理
+        
         /// <summary>
-        /// Enables detecting and solving movement collisions with a collider cast, based on character's velocity
+        /// 我移动时检测前面障碍物，生效在Update_MovementAndDecollisions函数
+        ///     作用:幽灵模式
         /// </summary>
         public bool DetectMovementCollisions;
+
         /// <summary>
-        /// Enables detecting and solving overlaps
+        /// 是否开启重叠挤出
+        /// false=即使你现在的胶囊体已经陷进墙里了，系统也不会把你弹出来。
         /// </summary>
         public bool DecollideFromOverlaps;
+
         /// <summary>
-        /// Enables doing an extra physics check to project velocity on initial overlaps before the character moves. This can help with tunneling issues when you rotate your character in a way that could change the detected collisions (which doesn't happen if your character has an upright capsule shape and only rotates around up axis, for example), but it has a performance cost.
+        /// 高级选项。防止“旋转穿墙”。
+        /// 如果你在墙角转身（胶囊体旋转），可能会把身体的一部分转进墙里。开启这个，会在旋转前就检测碰撞，把你挡住。性能开销大，默认关
         /// </summary>
         public bool ProjectVelocityOnInitialOverlaps;
+
         /// <summary>
-        /// The maximum amount of times per frame that the character should try to cast its collider for detecting hits
+        /// 性能/精度权衡。默认 8 次
+        /// 当你被夹在 V 型墙角时，系统需要多次计算才能算出正确的停止位置。次数太少会抖动，次数太多费 CPU。
         /// </summary>
         public byte MaxContinuousCollisionsIterations;
+        #endregion
+
+        #region 动力学交互
+        /// <summary>
+        /// 是否与其他刚体（箱子、球、车）交互
+        ///     你推箱子，箱子动；箱子撞你，你会受力
+        /// 是否发生事件待确认
+        /// </summary>
+        public bool SimulateDynamicBody;
+        /// <summary>
+        /// 质量。决定了你推箱子的力气有多大。
+        /// </summary>
+        public float Mass;
+
+        #endregion
+
+        #region 其他
         /// <summary>
         /// The maximum amount of times per frame that the character should try to decollide itself from overlaps
         /// </summary>
         public byte MaxOverlapDecollisionIterations;
         /// <summary>
-        /// Whether we should reset the remaining move distance to zero when the character exceeds the maximum collision iterations
+        /// 防穿模保险丝
+        /// 场景：你被两个极其锐角的墙夹住（比如 5 度夹角），或者被两个移动的物体像汉堡包一样夹住。
+        ///     迭代耗尽：CollideAndSlide 算法尝试了 MaxIterations（比如 8 次）之后，发现还是算不出一个不穿墙的位置。
+        /// 
+        /// 开启时(默认)：既然算不出来，那就不走了。remainingMovement = 0。
+        ///     表现：角色卡死不动。这是安全的。
+        /// 关闭时：强行移动到最后一次计算的位置。
+        ///     表现：角色可能会稍微穿墙，甚至被挤出地图外。
         /// </summary>
         public bool DiscardMovementWhenExceedMaxIterations;
         /// <summary>
-        /// Whether we should reset the velocity to zero when the character exceeds the maximum collision iterations
+        /// 防飞天保险丝
+        ///     场景：同上。你被夹住了，物理引擎计算出的“反弹速度”可能因为浮点误差变得极大
+        /// 开启时 (默认)：迭代耗尽时，把速度清零
+        ///     表现：角色不仅不动，而且动量也没了
+        /// 关闭时：保留那个巨大的错误速度。
+        ///     表现：当你终于从夹缝里出来时，你可能会像炮弹一样飞出去（Physics Explosion）
         /// </summary>
         public bool KillVelocityWhenExceedMaxIterations;
         /// <summary>
-        /// Enables doing a collider cast to detect obstructions when being moved by a parent body, instead of simply moving the character transform along
+        /// 场景：你站在电梯上。电梯把你推向天花板
+        /// 关闭时 (默认)：电梯是“绝对”的。如果电梯往上走，你会直接穿过天花板，因为系统只算电梯给你的位移，不算碰撞。
+        /// 开启时：系统会先发射射线检测“电梯带着我往上走，会不会撞头？”
+        ///     如果会撞头，角色会被卡住（不再跟随电梯），或者从电梯上滑下来。
         /// </summary>
         public bool DetectObstructionsForParentBodyMovement;
 
         /// <summary>
-        /// Enables physics interactions (push and be pushed) with other dynamic bodies. Note that in order to be pushed properly, the character's collision response has to be either \"None\" or \"Raise Trigger Events\"
+        /// 高精度地面
+        /// 场景：你在一个非常复杂的网格地形上（比如 rocky terrain），或者在两个三角形的边缘处移动。
+        /// 问题：普通的 Shapecast 可能会因为接触点刚好在边缘，导致法线计算抖动，让你觉得“有时候踩到了，有时候没踩到”。
+        /// 开启时：当 Raycast 距离为 0 时，系统会额外进行一次极其昂贵的 ColliderDistance 查询，重新计算精确的法线和距离。
+        /// 代价：性能开销大。只在角色出现“地面抖动”时开启。
         /// </summary>
-        public bool SimulateDynamicBody;
-        /// <summary>
-        /// The mass used to simulate dynamic body interactions
-        /// </summary>
-        public float Mass;
+        public bool EnhancedGroundPrecision;
+        
+        #endregion
 
         /// <summary>
         /// Constructs the runtime properties component based on authoring data

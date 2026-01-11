@@ -1,0 +1,7 @@
+﻿<Solution>
+  <Project Path="Unity.Physics.Custom.csproj" />
+  <Project Path="Unity.CharacterController.RuntimeTests.csproj" />
+  <Project Path="Unity.Physics.Custom.Editor.csproj" />
+  <Project Path="Assembly-CSharp.csproj" />
+  <Project Path="Unity.CharacterController.csproj" />
+</Solution>

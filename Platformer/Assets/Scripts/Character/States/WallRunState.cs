@@ -3,6 +3,9 @@ using Unity.CharacterController;
 using Unity.Mathematics;
 using Unity.Physics;
 
+/// <summary>
+/// 飞檐走壁 模式
+/// </summary>
 public struct WallRunState : IPlatformerCharacterState
 {
     public void OnStateEnter(CharacterState previousState, ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterProcessor processor)
@@ -35,21 +38,32 @@ public struct WallRunState : IPlatformerCharacterState
                 -character.LastKnownWallNormal * character.WallRunDetectionDistance,
                 out ColliderCastHit detectedHit))
         {
+            // 摸到了！确认墙还在，更新墙的法线
             character.HasDetectedMoveAgainstWall = true;
             character.LastKnownWallNormal = detectedHit.SurfaceNormal;
         }
         else
         {
+            // 没摸到，墙断了或者离开了
             character.LastKnownWallNormal = default;
         }
 
         if (character.HasDetectedMoveAgainstWall)
         {
+            // 1.计算墙面切线(Constrained Move Direction)
             float3 constrainedMoveDirection = math.normalizesafe(math.cross(character.LastKnownWallNormal, characterBody.GroundingUp));
-
+            
+            // 2. 处理玩家输入
+            // 先把玩家的输入投影到水平面上
             float3 moveVectorOnPlane = math.normalizesafe(MathUtilities.ProjectOnPlane(characterControl.MoveVector, characterBody.GroundingUp)) * math.length(characterControl.MoveVector);
             float3 acceleration = moveVectorOnPlane * character.WallRunAcceleration;
+
+            // 3. 强制输入约束 (Key Logic!)
+            // 将玩家的原始加速度，强制投影到墙面切线上。
+            // 这意味着：如果你对着墙跑，或者背着墙跑，最后都会变成“沿着墙跑”。
             acceleration = math.projectsafe(acceleration, constrainedMoveDirection);
+
+            // 4. 应用移动
             CharacterControlUtilities.StandardAirMove(ref characterBody.RelativeVelocity, acceleration, character.WallRunMaxSpeed, characterBody.GroundingUp, deltaTime, false);
 
             // Jumping
@@ -65,7 +79,9 @@ public struct WallRunState : IPlatformerCharacterState
             }
         }
 
-        // Gravity
+        // 1. 重力折扣
+        // WallRunGravityFactor 通常是 0.1f ~ 0.5f。
+        // 让你在墙上感觉“身轻如燕”。
         CharacterControlUtilities.AccelerateVelocity(ref characterBody.RelativeVelocity, (customGravity.Gravity * character.WallRunGravityFactor), deltaTime);
 
         // Drag

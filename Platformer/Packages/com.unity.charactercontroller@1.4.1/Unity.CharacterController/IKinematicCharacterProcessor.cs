@@ -13,6 +13,7 @@ namespace Unity.CharacterController
     public interface IKinematicCharacterProcessor<C> where C : unmanaged
     {
         /// <summary>
+        /// "头顶"指向哪里
         /// Requests that the grounding up direction should be updated.
         /// </summary>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
@@ -22,6 +23,7 @@ namespace Unity.CharacterController
             ref KinematicCharacterUpdateContext baseContext);
 
         /// <summary>
+        /// 碰撞过滤
         /// Determines if a hit can be collided with or not.
         /// </summary>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
@@ -35,6 +37,7 @@ namespace Unity.CharacterController
 
         /// <summary>
         /// 即使射线打到了东西，算不算“地面”？
+        /// 是否在地面
         /// Determines if the character can be grounded the hit or not.
         /// </summary>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
@@ -89,6 +92,7 @@ namespace Unity.CharacterController
             float3 originalVelocityDirection);
 
         /// <summary>
+        /// 物理交互，推动箱子
         /// Provides an opportunity to modify the physics masses used to solve impulses between characters and detected hit bodies.
         /// </summary>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>

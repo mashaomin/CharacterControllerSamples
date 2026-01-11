@@ -241,6 +241,7 @@ public struct PlatformerCharacterProcessor : IKinematicCharacterProcessor<Platfo
                 CharacterDataAccess.DeferredImpulsesBuffer,
                 customGravity.Gravity);
         }
+        // 核心逻辑入口
         // 是否允许实际移动和处理穿透（核心！）
         if (allowMovementAndDecollisions)
         {
@@ -444,6 +445,16 @@ public struct PlatformerCharacterProcessor : IKinematicCharacterProcessor<Platfo
     {
     }
 
+    /// <summary>
+    /// 询问时机：一帧的物理迭代结束后，KCC 决定“最终速度”时。
+    /// 作用：根据这一帧撞到的所有东西（墙、地、天花板），修正角色的 Velocity。
+    /// 默认实现 (Default_ProjectVelocityOnHits)：
+    ///     移除所有指向“墙内”的速度分量（让你不会卡进墙里）。
+    ///     处理 V型夹角（Crease）：如果你被夹在两个墙中间，它会把速度完全锁死，防止抖动。
+    /// 实战用途:
+    ///     跑酷/滑墙：如果是 Wall Run 状态，强制把速度投射到墙面切线上，并且不让重力把你拉下来。
+    ///     吸附磁轨：强制修正速度方向沿着轨道走。
+    /// </summary>
     public void ProjectVelocityOnHits(
         ref PlatformerCharacterUpdateContext context,
         ref KinematicCharacterUpdateContext baseContext,

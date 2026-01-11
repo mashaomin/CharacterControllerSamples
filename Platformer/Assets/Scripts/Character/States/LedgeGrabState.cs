@@ -3,6 +3,14 @@ using Unity.CharacterController;
 using Unity.Mathematics;
 using Unity.Physics;
 
+/// <summary>
+/// 如何写一个复杂的State
+///     1. Enter 修改 CharacterProperties，把自己变成“半物理”状态。
+///     2. Logic: 根据探测结果，手动修改 Position (Snapping) 和 Velocity (Movement)。
+///         Snapping->直接修改坐标 是非物理的瞬移（吸附墙壁，吸附地面，卡进墙被挤出来）
+///         Velocity->通过速度驱动符合逻辑的位置
+///     3. Transition: 检测跳跃键（爬上去 LedgeStandingUp）或下蹲键（松手 AirMove）。
+/// </summary>
 public struct LedgeGrabState : IPlatformerCharacterState
 {
     bool m_DetectedMustExitLedge;
@@ -17,7 +25,8 @@ public struct LedgeGrabState : IPlatformerCharacterState
         ref PlatformerCharacterComponent character = ref processor.Character.ValueRW;
         
         processor.SetCapsuleGeometry(character.StandingGeometry.ToCapsuleGeometry());
-        
+
+        // 因为攀爬时，角色是“挂”在墙上的，甚至可能稍微嵌入墙体一点点，所以关闭了触地+移动碰撞+重叠检测
         characterProperties.EvaluateGrounding = false;
         characterProperties.DetectMovementCollisions = false;
         characterProperties.DecollideFromOverlaps = false;
@@ -79,6 +88,7 @@ public struct LedgeGrabState : IPlatformerCharacterState
 
             // Stick to wall
             float3 characterForward = MathUtilities.GetForwardFromRotation(characterRotation);
+            // 它会强制修改坐标，让角色 "挂" 在离墙 k_CollisionOffset (0.02m) 的位置，并且高度对齐台阶面。
             characterPosition += characterForward * (forwardHitDistance - k_CollisionOffset);
 
             // Adjust to ledge height
@@ -86,8 +96,9 @@ public struct LedgeGrabState : IPlatformerCharacterState
 
             if (math.lengthsq(characterControl.MoveVector) > 0f)
             {
-                // Move input
+                // Move input ledgeDirection=台阶边缘的切线方向
                 float3 ledgeDirection = math.normalizesafe(math.cross(surfaceHit.SurfaceNormal, forwardHit.SurfaceNormal));
+                //  沿着切线移动
                 float3 moveInputOnLedgeDirection = math.projectsafe(characterControl.MoveVector, ledgeDirection);
 
                 // Check for move obstructions
@@ -201,11 +212,14 @@ public struct LedgeGrabState : IPlatformerCharacterState
         return processor.DetectGlobalTransitions(ref context, ref baseContext);
     }
 
+    #region private 
+
     public static bool IsLedgeGrabBlocked(in PlatformerCharacterComponent character)
     {
         return character.LedgeGrabBlockCounter > 0f;
     }
 
+    // 边缘是否可以抓住
     public static bool CanGrabLedge(ref PlatformerCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext, in PlatformerCharacterProcessor processor, out Entity ledgeEntity, out ColliderCastHit ledgeSurfaceHit)
     {
         ledgeEntity = Entity.Null;
@@ -220,7 +234,7 @@ public struct LedgeGrabState : IPlatformerCharacterState
         {
             return false;
         }
-
+        // 复杂的边缘检测 (LedgeDetection)
         LedgeDetection(
             ref context,
             ref baseContext,
@@ -250,7 +264,7 @@ public struct LedgeGrabState : IPlatformerCharacterState
 
         return ledgeIsValid && !isObstructedAtSurface;
     }
-
+    // 复杂的边缘检测(LedgeDetection)
     public static void LedgeDetection(
         ref PlatformerCharacterUpdateContext context,
         ref KinematicCharacterUpdateContext baseContext,
@@ -267,6 +281,19 @@ public struct LedgeGrabState : IPlatformerCharacterState
         out bool isObstructedAtCurrentPosition,
         out float upOffsetToPlaceLedgeDetectionPointAtLedgeLevel)
     {
+        // 1. Forward Cast (前方探测):
+        //      向角色前方发射胶囊体。
+        //      目的：确认前方有墙。如果前面是空气，那就不用抓了。
+        // 2. Overlap Check (防穿透检查):
+        //      CalculateDistanceClosestCollisions
+        //      目的：确认我现在的头顶没有被卡住。如果头顶有东西挡着，我就不能做“抓边缘”这个动作。
+        // 3. Downward Raycast (向下射线):
+        //      从角色头顶高度的前方一点点，向下发射射线
+        //      目的：找到 "台阶面" (Ledge Surface)。
+        //      如果正前方没找到，还会向左、向右偏移一点点再找
+        // 4. Obstruction Check (障碍检查):
+        //      虽然找到了台阶面，但台阶面上有没有放着花盆？或者有个人？
+        //      再发射一次 CastCollider (Line 434) 确认台阶上方是空的。
         const float ledgeProbingToleranceOffset = 0.04f;
 
         ledgeIsValid = false;
@@ -470,4 +497,6 @@ public struct LedgeGrabState : IPlatformerCharacterState
 
         wouldBeGroundedOnLedgeSurfaceHit = processor.IsGroundedOnHit(ref context, ref baseContext, new BasicHit(surfaceHit), 0);
     }
+
+    #endregion
 }

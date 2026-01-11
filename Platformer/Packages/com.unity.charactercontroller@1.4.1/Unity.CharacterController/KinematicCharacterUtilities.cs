@@ -14,25 +14,30 @@ using RaycastHit = Unity.Physics.RaycastHit;
 namespace Unity.CharacterController
 {
     /// <summary>
+    /// 碰撞生命周期
     /// The state of a character hit (enter, exit, stay)
     /// </summary>
     public enum CharacterHitState
     {
         /// <summary>
+        /// 刚撞上
         /// The hit has been entered
         /// </summary>
         Enter,
         /// <summary>
+        /// 持续接触
         /// The hit is being detected
         /// </summary>
         Stay,
         /// <summary>
+        /// 刚离开
         /// The hit has been exited
         /// </summary>
         Exit,
     }
 
     /// <summary>
+    /// 告诉 IsGroundedOnHit 函数，你现在的上下文是什么
     /// Identifier for a type of grounding evaluation
     /// </summary>
     public enum GroundingEvaluationType
@@ -42,6 +47,7 @@ namespace Unity.CharacterController
         /// </summary>
         Default,
         /// <summary>
+        /// 我在专门检测地面（射线向下打）
         /// Grounding evaluation for the ground probing phase
         /// </summary>
         GroundProbing,
@@ -54,10 +60,12 @@ namespace Unity.CharacterController
         /// </summary>
         InitialOverlaps,
         /// <summary>
+        /// 我在移动中撞到了东西（可能是墙，也可能是斜坡）
         /// Grounding evaluation for movement hits phase
         /// </summary>
         MovementHit,
         /// <summary>
+        /// 我在检测台阶（向上抬脚检测）
         /// Grounding evaluation for stepping up hits phase
         /// </summary>
         StepUpHit,
@@ -92,6 +100,8 @@ namespace Unity.CharacterController
     }
 
     /// <summary>
+    /// 通用碰撞数据
+    ///     是一个 Wrapper (包装器)
     /// A common hit struct for cast hits and distance hits
     /// </summary>
     [System.Serializable]
@@ -194,11 +204,11 @@ namespace Unity.CharacterController
     }
 
     /// <summary>
-    /// 1. Collide and Slide �㷨 (Update_MovementAndDecollisions)
+    /// 1. Collide and Slide 算法 (Update_MovementAndDecollisions)
     /// 2. Ground Snapping (Update_GroundPushing)
-    ///     �������������ʱ���������Ի�����ɳ�ȥ���������ǿ�ư��㡰������б���ϣ���֤�ָ�ƽ��
+    ///     当你快速跑下坡时，物理惯性会让你飞出去这个函数会强制把你“按”在斜坡上，保证手感平滑
     /// 3. Moving Platform Support (Update_ParentMovement)
-    ///     �Զ����������壨���ݣ���λ�ơ���ת��
+    ///     自动处理父物体（电梯）的位移、旋转。
     /// Collection of utility functions for characters
     /// </summary>
     public static class KinematicCharacterUtilities
@@ -438,13 +448,19 @@ namespace Unity.CharacterController
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void SetCollisionDetectionActive(bool active, ref KinematicCharacterProperties characterProperties, ref PhysicsCollider collider)
         {
+            // 不再做地面检测和碰撞投射
+            // 允许穿地
             characterProperties.EvaluateGrounding = active;
+            // 允许穿墙
             characterProperties.DetectMovementCollisions = active;
+            // 允许重叠
             characterProperties.DecollideFromOverlaps = active;
+            // DetectMovementCollisions是主动
+            // SetCollisionResponse是被动，别人是否可以穿越你
             collider.Value.Value.SetCollisionResponse(active ? CollisionResponsePolicy.Collide : CollisionResponsePolicy.None);
         }
 
-        #region Constants
+        #region 常量 Constants 
 
         /// <summary>
         /// Defines various constants used throughout the character update
@@ -491,7 +507,7 @@ namespace Unity.CharacterController
 
         #endregion
 
-        #region Kinematic Character Update
+        #region 核心更新流程 Kinematic Character Update 
 
         /// <summary>
         /// The initialization step of the character update (should be called on every character update). This resets key component values and buffers
@@ -720,7 +736,9 @@ namespace Unity.CharacterController
         }
 
         /// <summary>
-        /// Handles moving the character and solving collisions, based on character velocity, rotation, character grounding, and various other properties
+        /// Collide and Slide 算法入口
+        /// Handles moving the character and solving collisions, based on character velocity, rotation, 
+        /// character grounding, and various other properties
         /// </summary>
         /// <param name="processor"> The struct implementing <see cref="IKinematicCharacterProcessor{C}"/> </param>
         /// <param name="context"> The user context struct holding global data meant to be accessed during the character update </param>
@@ -1115,7 +1133,7 @@ namespace Unity.CharacterController
 
         #endregion
 
-        #region Kinematic Character Default Processor Callbacks
+        #region 默认回调 Kinematic Character Default Processor Callbacks
 
         /// <summary>
         /// Default implementation of the "IsGroundedOnHit" processor callback. Calls default grounding evaluation for a hit
@@ -1530,7 +1548,7 @@ namespace Unity.CharacterController
 
         #endregion
 
-        #region Kinematic Character Public Utilities
+        #region 公共工具 Kinematic Character Public Utilities
 
         // ===========================
         // Parent Management

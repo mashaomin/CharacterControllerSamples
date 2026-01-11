@@ -5,6 +5,9 @@ using Unity.CharacterController;
 using Unity.Transforms;
 using UnityEngine;
 
+/// <summary>
+/// 1. 因为要访问GameObject 所以是一个SystemBase
+/// </summary>
 [AlwaysSynchronizeSystem]
 [UpdateInGroup(typeof(SimulationSystemGroup), OrderLast = true)]
 [UpdateAfter(typeof(EndSimulationEntityCommandBufferSystem))]
@@ -39,7 +42,11 @@ public partial class PlatformerCharacterHybridSystem : SystemBase
             }
         }
         
-        // Update
+        // 同步
+        // 遍历所有Link
+        //      从ECS中读取LocalToWorld
+        //      写入GameObject相关位置
+        //      ECS是主GameObject是从，影子跟随
         foreach (var (characterAnimation, characterBody, characterTransform, characterComponent, characterStateMachine, characterControl, hybridLink, entity) in SystemAPI.Query<
             RefRW<PlatformerCharacterAnimation>, 
             KinematicCharacterBody,
@@ -88,7 +95,7 @@ public partial class PlatformerCharacterHybridSystem : SystemBase
             }
         }
         
-        // Destroy
+        // 销毁
         foreach (var (hybridLink, entity) in SystemAPI.Query<PlatformerCharacterHybridLink>()
                      .WithNone<PlatformerCharacterHybridData>()
                      .WithEntityAccess())

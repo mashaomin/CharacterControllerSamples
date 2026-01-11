@@ -4,6 +4,10 @@ using Unity.Mathematics;
 namespace Unity.CharacterController
 {
     /// <summary>
+    /// 主要功能
+    ///     1. 速度控制
+    ///     2. 旋转控制
+    ///     3. 基础物理模拟（比如跳跃，空气阻力）
     /// Contains various utility functions for controlling character velocity and rotation
     /// </summary>
     public static class CharacterControlUtilities
